@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vigi-provisioner"
+version = "0.1.0"
+description = "TP-Link VIGI camera provisioning components"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["cryptography", "requests", "urllib3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
