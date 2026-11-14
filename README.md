@@ -21,3 +21,11 @@ directly from the checkout. The check imports every package module and runs
 the selected protocol and transport-ownership tests without a camera.
 
 See [project layout and Ubuntu handoff](docs/project-layout.md).
+
+## Protocol and source documentation
+
+- [Provisioning workflow](docs/provisioning-workflow.md)
+- [TP-Link UDP discovery](docs/tplink-discovery.md)
+- [Factory camera HTTPS initialization](docs/https-initialization.md)
+- [ONVIF network settings and readback](docs/onvif-network.md)
+- [Every Python file](docs/python-reference.md)
