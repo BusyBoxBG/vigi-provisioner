@@ -1,5 +1,18 @@
 # VIGI C320I provisioning workflow
 
+## Run the workflow on Ubuntu
+
+The CLI targets one factory-state C320I at `192.168.0.60` using the existing lab transport on Ubuntu `192.168.0.10`. Verify the fresh post-reset certificate fingerprint in the browser, leave the wizard unsubmitted, and reserve the intended static address before starting. From the project checkout with its existing virtual environment active, run:
+
+```bash
+PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
+  --mac 18-69-45-9f-31-f7 \
+  --pin YOUR_VERIFIED_SHA256_FINGERPRINT \
+  --target-ip 192.168.0.150 --prefix 24 --gateway 192.168.0.1
+```
+
+Type the target IP to confirm it is unused and reserved. Enter the recovery email and new admin password at the prompts. The CLI checks factory state before activation, verifies the new password and regional settings, then reads back the ONVIF settings at the new address. If it stops after a write, inspect the current camera state before continuing. Restarting the command requires confirmed factory state. The workflow leaves SQLite records alone.
+
 ## 1. Discover over TP-Link UDP and initialize over HTTPS
 
 1. Broadcast the TP-Link discovery probe on UDP port 5001 from the camera-facing interface. Record the reply source IPv4, MAC, model, factory flag and advertised ONVIF endpoint. Match the MAC to the intended camera. A factory flag of `0` is a hint from discovery.
@@ -28,7 +41,7 @@ See [ONVIF network management](onvif-network.md) for SOAP structure, transport l
 | Step 880 | The saved result records acknowledgement of both ONVIF writes to move the camera to `192.168.0.150/24` with gateway `192.168.0.1`. |
 | Ubuntu, C320I firmware `2.2.1 Build 260605 Rel.12620n` | Live discovery passed. After browser activation, a standalone Python script passed certificate-pinned HTTPS login and the combined regional write. Separate browser reads confirmed time zone and frequency. Live ONVIF reads and writes passed, with authenticated readback at `.150` confirming static IPv4, DHCP disabled and the gateway. |
 
-The packaged end-to-end factory-state run on Ubuntu remains pending. The public packaged activation entry points block live transmission. The standalone HTTPS hardware test is recorded here as evidence, with its integration into the package still pending.
+A later factory-reset Ubuntu run passed pinned HTTPS activation, fresh login, regional write and readback, and ONVIF static IPv4 readback at the new address. These were separate commands. The new CLI combines them, and its one-command hardware run remains pending.
 
 ## Files used by each stage
 

@@ -1,6 +1,6 @@
 # Factory camera initialization over HTTPS
 
-The project implements request preparation, target approval, and transport-independent attempt handling. **The public live initialization entry points are disabled in this checkout.** Running a dry run does not set the camera password. The ONVIF guide starts with a camera that already has working credentials. Historical Step 810B reports successful hardware activation. The exact launcher behind that pass is unavailable, and the consolidated Ubuntu checkout has yet to demonstrate packaged live activation.
+The project implements request preparation, target approval, and transport-independent attempt handling. **Use the [factory workflow CLI](provisioning-workflow.md#run-the-workflow-on-ubuntu) for live factory activation.** The older initialization entry points described below remain dry-run or disabled. Running a dry run does not set the camera password. The ONVIF guide starts with a camera that already has working credentials. Historical Step 810B reports successful hardware activation. The exact launcher behind that pass is unavailable. A later Ubuntu run verified activation and fresh login with standalone commands. The consolidated CLI remains to be tested on hardware.
 
 ## 1. Find the camera and establish the target
 

@@ -2,7 +2,7 @@
 
 For the role of each component in the live sequence, see [Provisioning workflow](provisioning-workflow.md#files-used-by-each-stage).
 
-All 102 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
+All 103 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
 
 ## Package and verification
 
@@ -191,6 +191,10 @@ Public definitions: `DeadlineStreamError`, `DeadlineStream`.
 
 Direct package dependencies: `vigi_socket_deadline`.
 
+
+### vigi_factory_workflow.py
+
+Single-camera CLI that connects the tested UDP discovery, pinned HTTPS factory activation, authenticated regional settings, and ONVIF static IPv4 write and readback. [Source](../src/vigi_provisioner/vigi_factory_workflow.py)
 
 ### vigi_fixed_initialization_attempt.py
 
