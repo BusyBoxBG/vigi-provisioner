@@ -1,5 +1,7 @@
 # Python file reference
 
+For the role of each component in the live sequence, see [Provisioning workflow](provisioning-workflow.md#files-used-by-each-stage).
+
 All 102 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
 
 ## Package and verification

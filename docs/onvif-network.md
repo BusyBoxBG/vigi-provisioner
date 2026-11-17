@@ -38,3 +38,9 @@ A confirmed acknowledgement requires HTTP 200 and the expected qualified SOAP re
 An acknowledgement means the device reported acceptance. Verify persistence separately by rediscovering the planned MAC at the planned new IP and reading the ONVIF network settings there. The verifier requires exactly one matching interface token, a matching MAC, an enabled interface, DHCP disabled, the intended manual IPv4/prefix pair, and the intended gateway in the returned list. It returns individual mismatch reasons.
 
 The state layer tracks `pending`, `applied`, and `verified` separately. Application evidence must bind to the approved assignment and contain positive acknowledgement for both operations in order. Readback evidence must match that assignment. Evidence binding is a consistency check, so its provenance still depends on the caller's trusted execution path. The coordinator and verifier do not themselves update inventory.
+
+## Ubuntu hardware verification
+
+On the initialized C320I, Ubuntu successfully queried ONVIF device management over HTTP port 80. The first read showed `eth0` enabled with DHCP, `192.168.0.60/24` and gateway `192.168.0.1`. The one-time coordinator run received confirmed SOAP responses for both gateway and interface writes and reported `reboot_needed: false`. A fresh authenticated read at `192.168.0.150` confirmed the same interface MAC and token, static `192.168.0.150/24`, no DHCP address and gateway `192.168.0.1`. The test left the SQLite inventory unchanged.
+
+The original Windows Step 880 execution artifact also recorded acknowledgement of both writes. The Ubuntu test independently verified the change by reading the settings at the new IP. HTTPS handles account and regional setup in this workflow. All IP, prefix and gateway changes use ONVIF.

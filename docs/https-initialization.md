@@ -1,6 +1,6 @@
 # Factory camera initialization over HTTPS
 
-The project implements request preparation, target approval, and transport-independent attempt handling. **The public live initialization entry points are disabled in this checkout.** Running a dry run does not set the camera password. The ONVIF guide starts with a camera that already has working credentials.
+The project implements request preparation, target approval, and transport-independent attempt handling. **The public live initialization entry points are disabled in this checkout.** Running a dry run does not set the camera password. The ONVIF guide starts with a camera that already has working credentials. Historical Step 810B reports successful hardware activation. The exact launcher behind that pass is unavailable, and the consolidated Ubuntu checkout has yet to demonstrate packaged live activation.
 
 ## 1. Find the camera and establish the target
 
@@ -48,3 +48,27 @@ HTTP success requires parsed status `200` and a JSON object with integer `error_
 ## 5. Hand off to ONVIF
 
 When the camera has been initialized and the operator has confirmed that ONVIF credentials work, read its device information and network settings. Use the interface token and MAC returned by that camera to prepare the [static IPv4 workflow](onvif-network.md). This handoff is an operator boundary in the current project.
+
+## C320I browser capture and Ubuntu hardware results
+
+The first browser `POST /` used `method: do` with `set_password`. The captured field names include `username`, `language`, `ciphertext`, `reset_pwd_email`, `pwd_sec_type`, and three security-question and answer pairs. The observed question identifiers were `father_name`, `mother_name`, and `senior_teacher_name`. The existing packaged activation builder above has a different field set. The capture also showed separate requests for `system.boot_set_date.seconds_from_1970` and `system.sys.dev_alias`.
+
+### Verified post-activation HTTPS sequence
+
+A standalone Ubuntu Python test checked the approved SHA-256 certificate fingerprint before sending requests. The camera responded as follows.
+
+| Stage | Request | Hardware result |
+| --- | --- | --- |
+| Challenge | `POST /` with `method: do` and `user_management.get_encrypt_info: null` | HTTP 401 with `error_code: -40401` and usable mode, key and nonce under `data`. |
+| Login | `POST /` with `method: do` and `login` | HTTP 200, `error_code: 0`, top-level `stok`. |
+| Regional write | `POST /stok=<redacted>/ds` with `method: set`, `system.basic.timezone: UTC%2B02%3A00`, `system.basic.zone_id: Europe%2FVilnius` and `image.switch.flicker: 50hz` | HTTP 200 and `error_code: 0`. |
+| Time-zone read | `method: get`, `system.name: ["basic", "ntp", "dst", "dst_manual"]` | Browser read returned code 0, the expected decoded zone, English, and an empty country field. |
+| Frequency read | `method: get`, `image.name: "switch"` | Browser read returned code 0 and `image.switch.flicker: 50hz`. |
+
+The successful mode 2 login used the URL-decoded RSA public key from `key_2` and `keyType: "1"`. The encrypted message was the project's uppercase vendor MD5 value followed by a colon and the fresh nonce. RSA PKCS#1 v1.5 ciphertext was Base64-encoded and then URL-encoded for the password field. Login used `passwdType: "md5"`. Keep live credential values, challenge values and tokens out of logs. The existing Solar modules use a separate HTTP session protocol. The combined speculative GET with empty `system.basic` and `image.switch` returned `-40106`, so use the two observed read shapes.
+
+### Country mapping from the Config Tool
+
+The saved Java disassembly copies `country` to the initialization DTO. Its IPC settings builders emit time zone, zone ID and flicker. The NVR branch emits country as `system.basic.location`. A separate European-country branch queries initialization module support. The C320I browser capture showed no country write and returned empty `system.basic.country_region`. Keep `BG` in input metadata and report device-side Country/Region as unverified.
+
+Evidence is from the saved local Config Tool disassembly excerpts `vigi_init_dto_complete.txt`, `vigi_init_json_builders.txt`, and `passthrough_init_service.txt`, plus the C320I browser capture and Ubuntu hardware test. These source artifacts are kept outside the repo.
