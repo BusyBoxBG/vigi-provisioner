@@ -2,11 +2,17 @@
 
 import argparse
 import base64
+import hashlib
 import http.client
 import ipaddress
 import json
 import re
+import socket
+import sqlite3
+import ssl
+from contextlib import closing
 from getpass import getpass
+from pathlib import Path
 from urllib.parse import quote, unquote
 
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -227,10 +233,37 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def load_inventory_assignment(database, device_id):
+    uri = Path(database).resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as db:
+        row = db.execute(
+            """SELECT mac_address, approved_ipv4, prefix_length, gateway_ipv4
+               FROM camera_inventory WHERE device_id = ? AND model = 'VIGI C320I'""",
+            (device_id,),
+        ).fetchone()
+    if row is None:
+        raise ProvisioningError("No approved C320I assignment for that Device ID.")
+    return row
+
+
+def approve_observed_pin():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    with socket.create_connection((CAMERA_IP, 443), 10, (SOURCE_IP, 0)) as raw:
+        with context.wrap_socket(raw) as connection:
+            pin = hashlib.sha256(connection.getpeercert(binary_form=True)).hexdigest()
+    print(f"Observed SHA-256 fingerprint: {pin}")
+    if input("On the isolated provisioning LAN, type APPROVE to trust this certificate: ").strip() != "APPROVE":
+        raise ProvisioningError("Certificate approval declined.")
+    return pin
+
+
 def provision(args):
     compact_mac = normalize_mac(args.mac)
     mac = "-".join(compact_mac[i:i + 2] for i in range(0, 12, 2))
-    pin = normalize_sha256_pin(args.pin)
+    pin = normalize_sha256_pin(args.pin) if args.pin else None
     target = str(ipaddress.IPv4Address(args.target_ip))
     if target in {CAMERA_IP, SOURCE_IP}:
         raise ProvisioningError("Target must differ from the camera and Ubuntu source addresses.")
@@ -253,14 +286,30 @@ def provision(args):
     }
 
     devices = discover(local_ip=SOURCE_IP, timeout=5)
-    if not any(
-        item.get("ip") == CAMERA_IP
+    matches = [
+        item for item in devices
+        if item.get("ip") == CAMERA_IP
         and (item.get("mac") or "").lower().replace(":", "-") == mac
         and (item.get("model") or "").upper() == "VIGI C320I"
         and item.get("factory_flag") == 0
-        for item in devices
-    ):
+    ]
+    if args.device_id:
+        expected_qr = f"TP1{args.device_id}020"
+        if not matches or any((item.get("serial") or "").upper() != expected_qr for item in matches):
+            raise ProvisioningError("Discovery did not confirm the approved MAC and Device ID.")
+        # Repeated identical observations can be returned by a single probe.
+        if any(
+            item.get("ip") != CAMERA_IP
+            and ((item.get("serial") or "").upper() == expected_qr
+                 or (item.get("mac") or "").lower().replace(":", "-") == mac)
+            for item in devices
+        ):
+            raise ProvisioningError("Discovery reported conflicting camera identity.")
+        print(f"Inventory matched Device ID {args.device_id}, MAC {mac}: {target}/{args.prefix}, gateway {gateway['gateway']}.")
+    elif not matches:
         raise ProvisioningError("Expected factory-state VIGI C320I was not discovered.")
+    if pin is None:
+        pin = approve_observed_pin()
     camera = CameraHTTPS(pin)
     confirm_factory(camera)
 
@@ -292,17 +341,33 @@ def provision(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mac", required=True, help="Expected factory camera MAC")
-    parser.add_argument("--pin", required=True, help="Verified post-reset SHA-256 certificate fingerprint")
-    parser.add_argument("--target-ip", required=True, help="Unused IPv4 address approved for this camera")
-    parser.add_argument("--prefix", type=int, default=24)
-    parser.add_argument("--gateway", default="192.168.0.1")
+    parser.add_argument("--inventory", help="Read-only SQLite inventory path")
+    parser.add_argument("--device-id", help="Scanned C320I Device ID")
+    parser.add_argument("--mac", help="Expected factory camera MAC")
+    parser.add_argument("--pin", help="Verified post-reset SHA-256 certificate fingerprint")
+    parser.add_argument("--target-ip", help="Unused IPv4 address approved for this camera")
+    parser.add_argument("--prefix", type=int)
+    parser.add_argument("--gateway")
     args = parser.parse_args()
     try:
+        if args.inventory:
+            if any(value is not None for value in (args.mac, args.target_ip, args.prefix, args.gateway)):
+                parser.error("Inventory mode takes its network assignment only from SQLite.")
+            args.device_id = (args.device_id or "").strip().upper()
+            if not re.fullmatch(r"[0-9A-F]{17}", args.device_id):
+                parser.error("Inventory mode requires a 17-character hexadecimal Device ID.")
+            args.mac, args.target_ip, args.prefix, args.gateway = load_inventory_assignment(
+                args.inventory, args.device_id
+            )
+        else:
+            if args.device_id or not all((args.mac, args.pin, args.target_ip)):
+                parser.error("Supply --inventory and --device-id, or --mac, --pin and --target-ip.")
+            args.prefix = 24 if args.prefix is None else args.prefix
+            args.gateway = args.gateway or "192.168.0.1"
         provision(args)
     except ProvisioningError as exc:
         parser.exit(1, f"{exc}\n")
-    except (OSError, ValueError, EOFError) as exc:
+    except (OSError, ValueError, EOFError, sqlite3.Error) as exc:
         parser.exit(1, f"Provisioning stopped ({type(exc).__name__}). Check camera state before retrying.\n")
 
 

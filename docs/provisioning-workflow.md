@@ -13,6 +13,18 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
 
 Type the target IP to confirm it is unused and reserved. Enter the recovery email and new admin password at the prompts. The CLI checks factory state before activation, verifies the new password and regional settings, then reads back the ONVIF settings at the new address. If it stops after a write, inspect the current camera state before continuing. Restarting the command requires confirmed factory state. The workflow leaves SQLite records alone.
 
+### Inventory-driven bench test
+
+Supply a local SQLite database with a `camera_inventory` table containing `device_id`, `mac_address`, `model`, `approved_ipv4`, `prefix_length`, and `gateway_ipv4`. Store the printed ID and MAC. The database is opened read-only. For the tested C320I, UDP field `0x0018` contains `TP1` plus the printed ID plus `020`. The workflow checks this value and the MAC before fetching a certificate.
+
+```bash
+PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
+  --inventory "$HOME/vigi-test-inventory.sqlite3" \
+  --device-id 1326062CFD849E902
+```
+
+On the isolated provisioning segment, review the inventory match and observed SHA-256 fingerprint and type `APPROVE` to trust the observed certificate for that run. This is first-use trust. A separately verified `--pin` can be supplied instead. The workflow pins subsequent HTTPS requests and does not persist the observed certificate.
+
 ## 1. Discover over TP-Link UDP and initialize over HTTPS
 
 1. Broadcast the TP-Link discovery probe on UDP port 5001 from the camera-facing interface. Record the reply source IPv4, MAC, model, factory flag and advertised ONVIF endpoint. Match the MAC to the intended camera. A factory flag of `0` is a hint from discovery.
