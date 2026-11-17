@@ -59,7 +59,7 @@ See [ONVIF network management](onvif-network.md) for SOAP structure, transport l
 | Step 880 | The saved result records acknowledgement of both ONVIF writes to move the camera to `192.168.0.150/24` with gateway `192.168.0.1`. |
 | Ubuntu, C320I firmware `2.2.1 Build 260605 Rel.12620n` | Live discovery passed. After browser activation, a standalone Python script passed certificate-pinned HTTPS login and the combined regional write. Separate browser reads confirmed time zone and frequency. Live ONVIF reads and writes passed, with authenticated readback at `.150` confirming static IPv4, DHCP disabled and the gateway. |
 
-A later factory-reset Ubuntu run passed pinned HTTPS activation, fresh login, regional write and readback, and ONVIF static IPv4 readback at the new address. These were separate commands. The new CLI combines them, and its one-command hardware run remains pending.
+A later factory-reset Ubuntu run passed pinned HTTPS activation, fresh login, regional write and readback, and ONVIF static IPv4 readback at the new address. These were separate commands. The one-command CLI subsequently passed on a factory-reset C320I with the SQLite inventory and local TOML profile. Terminal approval replaced the browser fingerprint step. The CLI read the recovery email from TOML and verified English, UTC+02:00 / Europe/Vilnius, 50 Hz and the approved static address through authenticated readback. Country/Region read back empty. The recovery email was submitted without independent readback.
 
 ## Files used by each stage
 
