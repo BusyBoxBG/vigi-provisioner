@@ -1,6 +1,6 @@
 # VIGI Provisioner
 
-Factory-to-static-IP provisioning for TP-Link VIGI C320I cameras on an isolated corporate LAN. The Ubuntu workflow matches a scanned Device ID and MAC against SQLite, activates the camera over certificate-pinned HTTPS, applies a shared TOML profile, then configures and verifies static IPv4 over ONVIF.
+Factory-to-static-IP provisioning for TP-Link VIGI cameras on an isolated corporate LAN. The Ubuntu workflow matches a scanned Device ID and MAC against SQLite, activates the camera over certificate-pinned HTTPS, applies a shared TOML profile, then configures and verifies static IPv4 over ONVIF.
 
 ## Verified test setup
 

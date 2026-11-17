@@ -1,4 +1,4 @@
-# VIGI C320I provisioning workflow
+# TP-Link VIGI provisioning workflow
 
 ## Run the workflow on Ubuntu
 
@@ -48,18 +48,6 @@ See [TP-Link UDP discovery](tplink-discovery.md) for packet framing and the dist
 4. At the new address, read back the same MAC and interface token, IPv4 and prefix, DHCP disabled and intended gateway. Store acknowledgement and verification separately if using the SQLite provisioning state manager.
 
 See [ONVIF network management](onvif-network.md) for SOAP structure, transport limits and result handling.
-
-## Hardware evidence and integration status
-
-| Evidence | Result |
-| --- | --- |
-| Steps 807 and 810/810B | Historical test record reports successful real-camera discovery and factory initialization. The exact activation launcher is unavailable in the surviving transcript. |
-| Steps 815 and 817 | Historical record reports discovery-to-ONVIF integration and automatic inventory. |
-| Step 838 | Historical record reports the reusable HTTPS client passed on hardware. The exact test operations are unavailable in the surviving transcript. |
-| Step 880 | The saved result records acknowledgement of both ONVIF writes to move the camera to `192.168.0.150/24` with gateway `192.168.0.1`. |
-| Ubuntu, C320I firmware `2.2.1 Build 260605 Rel.12620n` | Live discovery passed. After browser activation, a standalone Python script passed certificate-pinned HTTPS login and the combined regional write. Separate browser reads confirmed time zone and frequency. Live ONVIF reads and writes passed, with authenticated readback at `.150` confirming static IPv4, DHCP disabled and the gateway. |
-
-A later factory-reset Ubuntu run passed pinned HTTPS activation, fresh login, regional write and readback, and ONVIF static IPv4 readback at the new address. These were separate commands. The one-command CLI subsequently passed on a factory-reset C320I with the SQLite inventory and local TOML profile. Terminal approval replaced the browser fingerprint step. The CLI read the recovery email from TOML and verified English, UTC+02:00 / Europe/Vilnius, 50 Hz and the approved static address through authenticated readback. Country/Region read back empty. The recovery email was submitted without independent readback.
 
 ## Files used by each stage
 
