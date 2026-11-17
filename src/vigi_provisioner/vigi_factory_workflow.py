@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 from .vigi_certificate_pin import normalize_sha256_pin
 from .vigi_discovery import discover
-from .vigi_initialization_config import VigiInitializationConfig
+from .vigi_initialization_config import VigiInitializationConfig, load_provisioning_profile
 from .vigi_onvif_gateway_config import prepare_default_gateway
 from .vigi_onvif_live_transport import ENDPOINT, SOURCE_IP, make_live_transport
 from .vigi_onvif_network import get_network_default_gateway, get_network_interfaces
@@ -34,9 +34,6 @@ from .vigi_static_ip_coordinator import execute_with_transport
 CAMERA_IP = "192.168.0.60"
 USERNAME = "admin"
 INTERFACE = "eth0"
-TIME_ZONE = "UTC+02:00"
-ZONE_ID = "Europe/Vilnius"
-FREQUENCY = "50hz"
 
 
 class ProvisioningError(RuntimeError):
@@ -94,7 +91,7 @@ def confirm_factory(camera):
         raise ProvisioningError("HTTPS did not confirm factory state.")
 
 
-def activation_payload(password, email):
+def activation_payload(password, email, language):
     return {
         "method": "do",
         "set_password": {
@@ -102,7 +99,7 @@ def activation_payload(password, email):
             "ciphertext": quote(encrypt_ipc_password(password), safe=""),
             "reset_pwd_email": quote(encrypt_ipc_password(email), safe=""),
             "pwd_sec_type": "1",
-            "language": "English",
+            "language": language,
             "sec_question_1": "father_name",
             "sec_question_2": "mother_name",
             "sec_question_3": "senior_teacher_name",
@@ -175,22 +172,19 @@ def read_regional_settings(camera, path):
         raise ProvisioningError("Unexpected regional settings response.") from None
 
 
-def configure_region(camera, path):
-    target = (TIME_ZONE, ZONE_ID, FREQUENCY)
+def configure_region(camera, path, config):
+    target = (config.time_zone, config.zone_id, config.power_line_frequency)
     actual, language, country = read_regional_settings(camera, path)
     if actual != target:
-        config = VigiInitializationConfig(
-            time_zone=TIME_ZONE, zone_id=ZONE_ID, power_line_frequency=FREQUENCY
-        )
         camera.post(
             "Write regional settings",
             config.timezone_request() | config.frequency_request(),
             path=path,
         )
         actual, language, country = read_regional_settings(camera, path)
-    if actual != target or language != "English":
+    if actual != target or language != config.language:
         raise ProvisioningError("Regional readback differs from the requested settings.")
-    print(f"Verified English, {TIME_ZONE}, {ZONE_ID}, {FREQUENCY}.")
+    print(f"Verified {config.language}, {config.time_zone}, {config.zone_id}, {config.power_line_frequency}.")
     print(f"Country/Region readback: {country or '(empty)'}")
 
 
@@ -261,6 +255,14 @@ def approve_observed_pin():
 
 
 def provision(args):
+    profile_path = Path(args.config or "provisioning.toml")
+    profile = (
+        load_provisioning_profile(profile_path)
+        if args.config is not None or profile_path.exists()
+        else None
+    )
+    config = profile or VigiInitializationConfig(zone_id="Europe/Vilnius")
+    print(f"Regional profile country: {config.country} (inventory intent).")
     compact_mac = normalize_mac(args.mac)
     mac = "-".join(compact_mac[i:i + 2] for i in range(0, 12, 2))
     pin = normalize_sha256_pin(args.pin) if args.pin else None
@@ -316,11 +318,11 @@ def provision(args):
     print(f"Camera {mac} at {CAMERA_IP} will move to {target}/{args.prefix}, gateway {gateway['gateway']}.")
     if input(f"Confirm {target} is unused and reserved for this camera by typing it: ").strip() != target:
         raise ProvisioningError("Confirmation did not match. No settings written.")
-    email = getpass("Recovery email: ").strip()
+    email = profile.email if profile is not None else getpass("Recovery email: ").strip()
     password = getpass("New camera admin password: ")
     if not email or not password or password != getpass("Confirm new password: "):
         raise ProvisioningError("A recovery email and matching passwords are required.")
-    payload = activation_payload(password, email)
+    payload = activation_payload(password, email, config.language)
     confirm_factory(camera)
     try:
         camera.post("Factory activation", payload)
@@ -329,7 +331,7 @@ def provision(args):
 
     try:
         path = login(camera, password)
-        configure_region(camera, path)
+        configure_region(camera, path, config)
         configure_network(plan, password)
     except (ProvisioningError, OSError, ValueError) as exc:
         detail = str(exc) if isinstance(exc, ProvisioningError) else type(exc).__name__
@@ -341,6 +343,7 @@ def provision(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", help="Shared TOML profile (default: local provisioning.toml if present)")
     parser.add_argument("--inventory", help="Read-only SQLite inventory path")
     parser.add_argument("--device-id", help="Scanned C320I Device ID")
     parser.add_argument("--mac", help="Expected factory camera MAC")
@@ -367,7 +370,9 @@ def main():
         provision(args)
     except ProvisioningError as exc:
         parser.exit(1, f"{exc}\n")
-    except (OSError, ValueError, EOFError, sqlite3.Error) as exc:
+    except ValueError as exc:
+        parser.exit(1, f"{exc}\n")
+    except (OSError, EOFError, sqlite3.Error) as exc:
         parser.exit(1, f"Provisioning stopped ({type(exc).__name__}). Check camera state before retrying.\n")
 
 

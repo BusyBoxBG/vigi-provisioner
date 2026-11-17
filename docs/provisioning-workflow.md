@@ -11,7 +11,13 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
   --target-ip 192.168.0.150 --prefix 24 --gateway 192.168.0.1
 ```
 
-Type the target IP to confirm it is unused and reserved. Enter the recovery email and new admin password at the prompts. The CLI checks factory state before activation, verifies the new password and regional settings, then reads back the ONVIF settings at the new address. If it stops after a write, inspect the current camera state before continuing. Restarting the command requires confirmed factory state. The workflow leaves SQLite records alone.
+Type the target IP to confirm it is unused and reserved. Enter the shared admin password at the prompt. Enter the recovery email if you have no site profile. The CLI checks factory state before activation, verifies the new password and regional settings, then reads back the ONVIF settings at the new address. If it stops after a write, inspect the current camera state before continuing. Restarting the command requires confirmed factory state. The workflow leaves SQLite records alone.
+
+### Shared site settings
+
+Copy [provisioning.example.toml](../provisioning.example.toml) to `provisioning.toml` and set the site's recovery email. The CLI reads this file from its working directory or accepts an explicit `--config /path/to/provisioning.toml`. The local file is ignored by Git. An explicit missing or invalid file stops the run before discovery. Without a site file, the CLI keeps its existing defaults and prompts for the recovery email.
+
+The C320I workflow requires `admin`. The profile supplies the language and regional settings. The country is local profile metadata, while the camera's Country/Region value is reported separately. Enter the shared password at the hidden prompt for each run. The profile has no password field.
 
 ### Inventory-driven bench test
 

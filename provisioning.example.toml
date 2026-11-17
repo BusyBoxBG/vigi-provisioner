@@ -1,0 +1,8 @@
+[camera_defaults]
+username = "admin"
+recovery_email = "camera-support@example.com"
+language = "English"
+country = "BG"
+time_zone = "UTC+02:00"
+zone_id = "Europe/Vilnius"
+power_line_frequency = "50hz"

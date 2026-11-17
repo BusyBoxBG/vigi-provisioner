@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "TP-Link VIGI camera provisioning components"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["cryptography", "requests", "urllib3"]
+dependencies = ["cryptography", "requests", "urllib3", "tomli; python_version < '3.11'"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
