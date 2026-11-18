@@ -19,7 +19,7 @@ from urllib.parse import quote, unquote
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
-from .vigi_certificate_pin import normalize_sha256_pin
+from .vigi_certificate_pin import CertificatePinError, normalize_sha256_pin
 from .vigi_discovery import discover
 from .vigi_initialization_config import VigiInitializationConfig, load_provisioning_profile
 from .vigi_onvif_gateway_config import prepare_default_gateway
@@ -327,18 +327,34 @@ def load_inventory_assignment(database, device_id):
     return row
 
 
-def approve_observed_pin():
+def approve_observed_pin(camera_ip=CAMERA_IP):
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     context.minimum_version = ssl.TLSVersion.TLSv1_2
-    with socket.create_connection((CAMERA_IP, 443), 10, (SOURCE_IP, 0)) as raw:
+    with socket.create_connection((camera_ip, 443), 10, (SOURCE_IP, 0)) as raw:
         with context.wrap_socket(raw) as connection:
             pin = hashlib.sha256(connection.getpeercert(binary_form=True)).hexdigest()
-    print(f"Observed SHA-256 fingerprint: {pin}")
+    print(f"Observed SHA-256 fingerprint at {camera_ip}: {pin}")
     if input("On the isolated provisioning LAN, type APPROVE to trust this certificate: ").strip() != "APPROVE":
         raise ProvisioningError("Certificate approval declined.")
     return pin
+
+
+def pin_after_network_move(camera_ip, original_pin, *, independently_verified):
+    try:
+        with connect_pinned_tls(camera_ip, 443, SOURCE_IP, original_pin, timeout=10):
+            pass
+    except CertificatePinError:
+        print(f"HTTPS certificate differs at {camera_ip}. Original fingerprint: {original_pin}")
+        if independently_verified:
+            replacement = input(
+                f"Enter the independently verified SHA-256 fingerprint at {camera_ip}: "
+            ).strip()
+            return normalize_sha256_pin(replacement)
+        return approve_observed_pin(camera_ip)
+    print(f"Original HTTPS certificate pin verified at {camera_ip}.")
+    return original_pin
 
 
 def provision(args):
@@ -421,7 +437,10 @@ def provision(args):
         configure_region(camera, path, config)
         configure_network(plan, password)
         if config.dns is not None:
-            configure_dns(pin, password, plan, config.dns)
+            dns_pin = pin_after_network_move(
+                target, pin, independently_verified=args.pin is not None
+            )
+            configure_dns(dns_pin, password, plan, config.dns)
     except (ProvisioningError, OSError, ValueError) as exc:
         detail = str(exc) if isinstance(exc, ProvisioningError) else type(exc).__name__
         raise ProvisioningError(
