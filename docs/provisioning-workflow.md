@@ -21,6 +21,8 @@ The C320I workflow requires `admin`. The profile supplies the language and regio
 
 The example's optional `[clock]` section configures DD-MM-YYYY, 24-hour time, manual DST (+60 minutes from the last Sunday in March at 03:00 to the last Sunday in October at 04:00), and NTP at `84.54.128.102:123` every 60 minutes. Copy the clock tables into an existing local profile to enable them. The CLI applies date/DST and custom NTP in separate HTTPS writes and checks their readback before ONVIF. Readback verifies configuration. The camera needs network access to the NTP server to synchronize.
 
+The optional `[dns]` table supplies primary and secondary IPv4 resolvers. After ONVIF verifies the new address, the CLI opens a fresh HTTPS session at that address using the same approved certificate pin. It writes only `protocol.static.pri_dns` and `snd_dns` and checks both saved and active values while checking the approved IP, netmask and gateway. The active values can lag behind the saved values. The C320I bench test confirmed both DNS fields via HTTPS. ONVIF SetDNS changed only the primary in that test.
+
 ### Inventory-driven bench test
 
 Supply a local SQLite database with a `camera_inventory` table containing `device_id`, `mac_address`, `model`, `approved_ipv4`, `prefix_length`, and `gateway_ipv4`. Store the printed ID and MAC. The database is opened read-only. For the tested C320I, UDP field `0x0018` contains `TP1` plus the printed ID plus `020`. The workflow checks this value and the MAC before fetching a certificate.

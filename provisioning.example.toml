@@ -27,3 +27,7 @@ end_month = 10
 end_week = 5
 end_day = 0
 end_hour = 4
+
+[dns]
+primary = "84.54.128.100"
+secondary = "8.8.8.8"

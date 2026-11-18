@@ -10,6 +10,7 @@ import re
 import socket
 import sqlite3
 import ssl
+import time
 from contextlib import closing
 from getpass import getpass
 from pathlib import Path
@@ -41,12 +42,12 @@ class ProvisioningError(RuntimeError):
 
 
 class CameraHTTPS(http.client.HTTPConnection):
-    def __init__(self, pin):
-        super().__init__(CAMERA_IP, 443, timeout=10)
+    def __init__(self, pin, camera_ip=CAMERA_IP):
+        super().__init__(camera_ip, 443, timeout=10)
         self.pin = pin
 
     def connect(self):
-        self.sock = connect_pinned_tls(CAMERA_IP, 443, SOURCE_IP, self.pin, timeout=10)
+        self.sock = connect_pinned_tls(self.host, 443, SOURCE_IP, self.pin, timeout=10)
 
     def post(self, stage, payload, *, path="/", challenge=False):
         try:
@@ -257,6 +258,62 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def read_dns(camera, path, plan):
+    _, result = camera.post(
+        "Read DNS settings",
+        {
+            "method": "get",
+            "protocol": {"name": ["wan", "static", "dhcp"]},
+            "network": {"name": ["wan_status"]},
+            "uhttpd": {"name": ["main"]},
+        },
+        path=path,
+    )
+    try:
+        saved = result["protocol"]["static"]
+        active = result["network"]["wan_status"]
+        mac = normalize_mac(active["mac"])
+    except (KeyError, TypeError, ValueError):
+        raise ProvisioningError("Unexpected DNS or WAN readback.") from None
+    netmask = str(ipaddress.IPv4Network(f"0.0.0.0/{plan['prefix_length']}").netmask)
+    expected = (plan["target_ip"], netmask, plan["gateway"])
+    if mac != normalize_mac(plan["mac"]) or active.get("proto") != "static":
+        raise ProvisioningError("DNS readback did not confirm the expected static camera.")
+    for section in (saved, active):
+        if not isinstance(section, dict) or tuple(
+            section.get(field) for field in ("ipaddr", "netmask", "gateway")
+        ) != expected:
+            raise ProvisioningError("Saved or active network assignment differs from the approved plan.")
+    return (
+        (saved.get("pri_dns"), saved.get("snd_dns")),
+        (active.get("pri_dns"), active.get("snd_dns")),
+    )
+
+
+def configure_dns(pin, password, plan, target):
+    camera = CameraHTTPS(pin, plan["target_ip"])
+    path = login(camera, password)
+    saved, active = read_dns(camera, path, plan)
+    if saved != target or active != target:
+        camera.post(
+            "Write DNS settings",
+            {"method": "set", "protocol": {"static": {"pri_dns": target[0], "snd_dns": target[1]}}},
+            path=path,
+        )
+        deadline = time.monotonic() + 60
+        while True:
+            saved, active = read_dns(camera, path, plan)
+            if saved == active == target:
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                if saved == target:
+                    raise ProvisioningError("DNS was saved, but the active pair did not match before timeout.")
+                raise ProvisioningError("DNS readback did not confirm the saved and active pair.")
+            time.sleep(min(3, remaining))
+    print(f"Verified saved and active DNS: {target[0]} and {target[1]}.")
+
+
 def load_inventory_assignment(database, device_id):
     uri = Path(database).resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
@@ -363,6 +420,8 @@ def provision(args):
         path = login(camera, password)
         configure_region(camera, path, config)
         configure_network(plan, password)
+        if config.dns is not None:
+            configure_dns(pin, password, plan, config.dns)
     except (ProvisioningError, OSError, ValueError) as exc:
         detail = str(exc) if isinstance(exc, ProvisioningError) else type(exc).__name__
         raise ProvisioningError(

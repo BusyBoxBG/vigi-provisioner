@@ -30,6 +30,7 @@ class VigiInitializationConfig:
     zone_id: str = "Europe/Athens"
     time_zone: str = "UTC+02:00"
     clock: ClockProfile | None = None
+    dns: tuple[str, str] | None = None
 
     def timezone_request(self):
         return {
@@ -80,8 +81,8 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock"} or not isinstance(defaults, dict):
-        raise ValueError("Expected [camera_defaults] and optionally [clock].")
+    if set(document) - {"camera_defaults", "clock", "dns"} or not isinstance(defaults, dict):
+        raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
     if any(not isinstance(value, str) or not value.strip() for value in defaults.values()):
@@ -102,7 +103,23 @@ def load_provisioning_profile(path):
     if values["power_line_frequency"] not in {"50hz", "60hz"}:
         raise ValueError("Power-line frequency must be 50hz or 60hz.")
     clock = load_clock_profile(document["clock"]) if "clock" in document else None
-    return VigiInitializationConfig(email=email, clock=clock, **values)
+    dns = load_dns_profile(document["dns"]) if "dns" in document else None
+    return VigiInitializationConfig(email=email, clock=clock, dns=dns, **values)
+
+
+def load_dns_profile(dns):
+    if not isinstance(dns, dict) or set(dns) != {"primary", "secondary"}:
+        raise ValueError("Expected primary and secondary in [dns].")
+    addresses = []
+    for field in ("primary", "secondary"):
+        value = dns[field]
+        if not isinstance(value, str):
+            raise ValueError(f"DNS {field} must be an IPv4 address string.")
+        address = IPv4Address(value)
+        if address.is_unspecified or address.is_multicast or int(address) == 0xffffffff:
+            raise ValueError(f"DNS {field} must be a unicast IPv4 address.")
+        addresses.append(str(address))
+    return addresses[0], addresses[1]
 
 
 def load_clock_profile(clock):
