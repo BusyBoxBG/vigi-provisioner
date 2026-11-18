@@ -67,6 +67,12 @@ A standalone Ubuntu Python test checked the approved SHA-256 certificate fingerp
 
 The successful mode 2 login used the URL-decoded RSA public key from `key_2` and `keyType: "1"`. The encrypted message was the project's uppercase vendor MD5 value followed by a colon and the fresh nonce. RSA PKCS#1 v1.5 ciphertext was Base64-encoded and then URL-encoded for the password field. Login used `passwdType: "md5"`. Keep live credential values, challenge values and tokens out of logs. The existing Solar modules use a separate HTTP session protocol. The combined speculative GET with empty `system.basic` and `image.switch` returned `-40106`, so use the two observed read shapes.
 
+### Clock and DNS profile readback
+
+The shared TOML clock profile sends a date and DST write under `system.basic` and `system.dst_manual`, followed by a separate `system.ntp` write. The C320I accepted and read back `date_format: 2` (DD-MM-YYYY), `time_format: 0` (24-hour), the configured manual DST schedule, and NTP at `84.54.128.102`, UDP port `123`, interval `60` minutes. Readback verifies configuration. Synchronization depends on reachability of the server.
+
+After live ONVIF readback at the new static IP, the CLI verifies the original certificate pin or obtains explicit approval for a changed certificate. It then sends a DNS-only `set` under `protocol.static` with `pri_dns: "84.54.128.100"` and `snd_dns: "8.8.8.8"`. Success requires those values in both `protocol.static` and `network.wan_status`, with the approved network assignment intact. Active DNS lagged saved DNS during testing.
+
 ### Country mapping from the Config Tool
 
 The saved Java disassembly copies `country` to the initialization DTO. Its IPC settings builders emit time zone, zone ID and flicker. The NVR branch emits country as `system.basic.location`. A separate European-country branch queries initialization module support. The C320I browser capture showed no country write and returned empty `system.basic.country_region`. Keep `BG` in input metadata and report device-side Country/Region as unverified.

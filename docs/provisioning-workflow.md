@@ -53,6 +53,10 @@ See [TP-Link UDP discovery](tplink-discovery.md) for packet framing and the dist
 
 See [ONVIF network management](onvif-network.md) for SOAP structure, transport limits and result handling.
 
+## 3. Apply DNS at the verified static address
+
+The factory-to-configured Ubuntu run verified the optional clock and DNS profiles on the C320I. HTTPS clock readback matched the date format, manual DST, and custom NTP configuration before the ONVIF address move. The camera presented a different HTTPS certificate at `192.168.0.150` than at `192.168.0.60`. After terminal approval of the new fingerprint, the CLI logged in and verified saved and active DNS at `84.54.128.100` and `8.8.8.8`. The IP, netmask, and gateway matched the approved assignment during DNS readback. The firmware trigger for the certificate change is unknown.
+
 ## Files used by each stage
 
 | Area | Python files and their roles |
