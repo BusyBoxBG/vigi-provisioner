@@ -19,6 +19,8 @@ Copy [provisioning.example.toml](../provisioning.example.toml) to `provisioning.
 
 The C320I workflow requires `admin`. The profile supplies the language and regional settings. The country is local profile metadata, while the camera's Country/Region value is reported separately. Enter the shared password at the hidden prompt for each run. The profile has no password field.
 
+The example's optional `[clock]` section configures DD-MM-YYYY, 24-hour time, manual DST (+60 minutes from the last Sunday in March at 03:00 to the last Sunday in October at 04:00), and NTP at `84.54.128.102:123` every 60 minutes. Copy the clock tables into an existing local profile to enable them. The CLI applies date/DST and custom NTP in separate HTTPS writes and checks their readback before ONVIF. Readback verifies configuration. The camera needs network access to the NTP server to synchronize.
+
 ### Inventory-driven bench test
 
 Supply a local SQLite database with a `camera_inventory` table containing `device_id`, `mac_address`, `model`, `approved_ipv4`, `prefix_length`, and `gateway_ipv4`. Store the printed ID and MAC. The database is opened read-only. For the tested C320I, UDP field `0x0018` contains `TP1` plus the printed ID plus `020`. The workflow checks this value and the MAC before fetching a certificate.

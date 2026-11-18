@@ -6,3 +6,24 @@ country = "BG"
 time_zone = "UTC+02:00"
 zone_id = "Europe/Vilnius"
 power_line_frequency = "50hz"
+
+[clock]
+date_format = "DD-MM-YYYY"
+time_format = "24-hour"
+
+[clock.ntp]
+server = "84.54.128.102"
+port = 123
+interval = 60
+
+[clock.dst_manual]
+dst_savings = 60
+# Week 5 is Last and day 0 is Sunday.
+start_month = 3
+start_week = 5
+start_day = 0
+start_hour = 3
+end_month = 10
+end_week = 5
+end_day = 0
+end_hour = 4

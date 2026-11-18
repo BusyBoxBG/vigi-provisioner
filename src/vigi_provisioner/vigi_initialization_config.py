@@ -1,6 +1,23 @@
 from dataclasses import dataclass
 from urllib.parse import quote_plus
-import json
+from ipaddress import IPv4Address
+
+
+@dataclass(frozen=True)
+class ClockProfile:
+    ntp: dict
+    dst_manual: dict
+
+    def settings_request(self, config):
+        request = config.timezone_request()
+        request["system"]["basic"].update(
+            date_format=2, time_format=0, timing_mode="ntp"
+        )
+        request["system"]["dst_manual"] = dict(self.dst_manual)
+        return request
+
+    def ntp_request(self):
+        return {"method": "set", "system": {"ntp": dict(self.ntp)}}
 
 
 @dataclass(frozen=True)
@@ -12,6 +29,7 @@ class VigiInitializationConfig:
     power_line_frequency: str = "50hz"
     zone_id: str = "Europe/Athens"
     time_zone: str = "UTC+02:00"
+    clock: ClockProfile | None = None
 
     def timezone_request(self):
         return {
@@ -62,8 +80,8 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) != {"camera_defaults"} or not isinstance(defaults, dict):
-        raise ValueError("Expected a single [camera_defaults] table.")
+    if set(document) - {"camera_defaults", "clock"} or not isinstance(defaults, dict):
+        raise ValueError("Expected [camera_defaults] and optionally [clock].")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
     if any(not isinstance(value, str) or not value.strip() for value in defaults.values()):
@@ -83,4 +101,40 @@ def load_provisioning_profile(path):
         raise ValueError("Zone ID must use an Area/Location format.")
     if values["power_line_frequency"] not in {"50hz", "60hz"}:
         raise ValueError("Power-line frequency must be 50hz or 60hz.")
-    return VigiInitializationConfig(email=email, **values)
+    clock = load_clock_profile(document["clock"]) if "clock" in document else None
+    return VigiInitializationConfig(email=email, clock=clock, **values)
+
+
+def load_clock_profile(clock):
+    if not isinstance(clock, dict) or set(clock) != {"date_format", "time_format", "ntp", "dst_manual"}:
+        raise ValueError("Expected date_format, time_format, ntp and dst_manual in [clock].")
+    if clock["date_format"] != "DD-MM-YYYY" or clock["time_format"] != "24-hour":
+        raise ValueError("The verified clock profile requires DD-MM-YYYY and 24-hour.")
+
+    ntp = clock["ntp"]
+    if not isinstance(ntp, dict) or set(ntp) != {"server", "port", "interval"}:
+        raise ValueError("Expected server, port and interval in [clock.ntp].")
+    if not isinstance(ntp["server"], str):
+        raise ValueError("NTP server must be an IPv4 address string.")
+    server = IPv4Address(ntp["server"])
+    if server.is_unspecified or server.is_multicast or int(server) == 0xffffffff:
+        raise ValueError("NTP server must be a unicast IPv4 address.")
+    if type(ntp["port"]) is not int or not 1 <= ntp["port"] <= 65535:
+        raise ValueError("NTP port must be between 1 and 65535.")
+    if type(ntp["interval"]) is not int or ntp["interval"] < 1:
+        raise ValueError("NTP interval must be a positive number of minutes.")
+
+    bounds = {"dst_savings": (1, 120)}
+    for edge in ("start", "end"):
+        for field, limit in {"month": (1, 12), "week": (1, 5), "day": (0, 6), "hour": (0, 23)}.items():
+            bounds[f"{edge}_{field}"] = limit
+    dst = clock["dst_manual"]
+    if not isinstance(dst, dict) or set(dst) != bounds.keys():
+        raise ValueError("Expected DST savings and a complete start and end schedule.")
+    for field, (low, high) in bounds.items():
+        if type(dst[field]) is not int or not low <= dst[field] <= high:
+            raise ValueError(f"Invalid manual DST field: {field}.")
+    return ClockProfile(
+        ntp=dict(ntp, server=str(server)),
+        dst_manual={"enabled": "on", **{field: str(value) for field, value in dst.items()}},
+    )

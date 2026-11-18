@@ -167,21 +167,51 @@ def read_regional_settings(camera, path):
             unquote(basic["zone_id"]),
             image["image"]["switch"]["flicker"],
         )
-        return settings, basic.get("language"), basic.get("country_region")
+        return settings, basic.get("language"), basic.get("country_region"), system["system"]
     except (KeyError, TypeError, AttributeError):
         raise ProvisioningError("Unexpected regional settings response.") from None
 
 
+def settings_match(system, expected):
+    for section, fields in expected.items():
+        observed = system.get(section)
+        if not isinstance(observed, dict):
+            return False
+        if any(str(observed.get(field)) != str(value) for field, value in fields.items()):
+            return False
+    return True
+
+
 def configure_region(camera, path, config):
     target = (config.time_zone, config.zone_id, config.power_line_frequency)
-    actual, language, country = read_regional_settings(camera, path)
+    actual, language, country, system = read_regional_settings(camera, path)
     if actual != target:
         camera.post(
             "Write regional settings",
             config.timezone_request() | config.frequency_request(),
             path=path,
         )
-        actual, language, country = read_regional_settings(camera, path)
+        actual, language, country, system = read_regional_settings(camera, path)
+    if config.clock is not None:
+        settings_request = config.clock.settings_request(config)
+        ntp_request = config.clock.ntp_request()
+        expected_clock = {
+            "basic": {
+                field: value for field, value in settings_request["system"]["basic"].items()
+                if field not in {"timezone", "zone_id"}
+            },
+            "dst_manual": settings_request["system"]["dst_manual"],
+        }
+        expected_ntp = ntp_request["system"]
+        needs_clock_write = not settings_match(system, expected_clock)
+        if needs_clock_write:
+            camera.post("Write date and DST settings", settings_request, path=path)
+        if needs_clock_write or not settings_match(system, expected_ntp):
+            camera.post("Write custom NTP settings", ntp_request, path=path)
+        actual, language, country, system = read_regional_settings(camera, path)
+        if not settings_match(system, expected_clock | expected_ntp):
+            raise ProvisioningError("Date, DST or NTP readback differs from the requested settings.")
+        print("Verified date format, manual DST and custom NTP configuration.")
     if actual != target or language != config.language:
         raise ProvisioningError("Regional readback differs from the requested settings.")
     print(f"Verified {config.language}, {config.time_zone}, {config.zone_id}, {config.power_line_frequency}.")
