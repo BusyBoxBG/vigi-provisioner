@@ -75,9 +75,6 @@ def initialize_inventory(path):
         }.items():
             if name not in existing:
                 db.execute(f"ALTER TABLE camera_inventory ADD COLUMN {name} {declaration}")
-        db.execute(
-            "UPDATE camera_inventory SET status='unverified' WHERE status='ready' OR status IS NULL"
-        )
 
 
 def save_camera(path, data):
