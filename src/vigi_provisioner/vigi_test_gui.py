@@ -35,7 +35,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label>Netmask or prefix</label><input name="prefix" value="255.255.255.0" required>
 <label>Gateway</label><input name="gateway_ipv4" value="192.168.0.1" required>
 <button>Save inventory</button></form><p><small>The current provisioning engine supports the tested C320I lab addresses. Other models can be recorded for future testing.</small></p></section>
-<div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <button id="start" onclick="start()">Start provisioning</button><p id="message" role="status"></p></section>
 <section><h2>Provisioning steps</h2><pre id="log"></pre><div id="prompt" hidden>
 <label id="question"></label><input id="answer" autocomplete="off"><button onclick="answer()">Confirm / Continue</button></div></section></div></div></main>
@@ -45,7 +45,14 @@ async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",h
 function cell(row,text){let td=document.createElement("td");td.textContent=text;row.append(td)}
 async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;
 let table=document.getElementById("rows");let selected=document.querySelector("input[name=selected]:checked")?.value;table.replaceChildren();
-for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"ready");table.append(row)}
+for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"ready");
+let actions=document.createElement("td"),remove=document.createElement("button");
+remove.textContent="Delete";remove.style.background="#a33838";remove.disabled=s.running;
+remove.onclick=async()=>{
+if(!confirm("Delete inventory record for "+c.device_id+"? The camera settings will stay as configured."))return;
+try{await api("/api/delete",{device_id:c.device_id});document.getElementById("message").textContent="Inventory record deleted";await refresh()}
+catch(e){document.getElementById("message").textContent=e.message}};
+actions.append(remove);row.append(actions);table.append(row)}
 pending=s.prompt;document.getElementById("prompt").hidden=!pending;if(pending){document.getElementById("question").textContent=pending.text;document.getElementById("answer").type=pending.secret?"password":"text"}
 }catch(e){document.getElementById("message").textContent=e.message}}
 document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";refresh()}catch(e){document.getElementById("message").textContent=e.message}};
@@ -150,6 +157,16 @@ class Application:
             self.log.append("Run completed." if code == 0 else "Run stopped. Check camera state before retrying.")
             db.execute("UPDATE camera_inventory SET status=? WHERE device_id=?",
                        ("verified" if code == 0 else "stopped",device_id))
+
+    def delete_camera(self, device_id):
+        with self.lock, closing(sqlite3.connect(self.database)) as db, db:
+            if self.running:
+                raise ValueError("Wait for the active run before deleting inventory.")
+            result = db.execute(
+                "DELETE FROM camera_inventory WHERE device_id=?", (device_id,)
+            )
+            if result.rowcount != 1:
+                raise ValueError("Camera record not found.")
 
     def answer(self, data):
         with self.lock:
@@ -290,6 +307,8 @@ def main():
                         )
                         if result.rowcount != 1:
                             raise ValueError("Camera record not found.")
+                elif self.path == "/api/delete":
+                    app.delete_camera(data["device_id"])
                 elif self.path == "/api/start":
                     app.start(data["device_id"])
                 elif self.path == "/api/answer":
