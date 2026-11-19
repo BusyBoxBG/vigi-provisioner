@@ -258,6 +258,32 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def configure_platform_access(camera, path, enabled):
+    target = "on" if enabled else "off"
+
+    def read():
+        _, result = camera.post(
+            "Read Platform Access",
+            {"method": "get", "cloud_config": {"name": ["cloud_connect"]}},
+            path=path,
+        )
+        return result.get("cloud_config", {}).get("cloud_connect", {}).get("enable")
+
+    actual = read()
+    if actual not in {"on", "off"}:
+        raise ProvisioningError("Unexpected Platform Access readback.")
+    if actual != target:
+        camera.post(
+            "Write Platform Access",
+            {"method": "set", "cloud_config": {"cloud_connect": {"enable": target}}},
+            path=path,
+        )
+        actual = read()
+    if actual != target:
+        raise ProvisioningError("Platform Access readback differs from the profile.")
+    print(f"Verified Platform Access: {target}.")
+
+
 def configure_video(camera, path, target):
     def read():
         _, result = camera.post(
@@ -504,6 +530,8 @@ def provision(args):
         configure_region(camera, path, config)
         if config.video is not None:
             configure_video(camera, path, config.video)
+        if config.platform_access is not None:
+            configure_platform_access(camera, path, config.platform_access)
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(

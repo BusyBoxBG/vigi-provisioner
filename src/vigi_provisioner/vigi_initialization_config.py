@@ -32,6 +32,7 @@ class VigiInitializationConfig:
     clock: ClockProfile | None = None
     dns: tuple[str, str] | None = None
     video: dict | None = None
+    platform_access: bool | None = None
 
     def timezone_request(self):
         return {
@@ -82,7 +83,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns", "video"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -106,7 +107,16 @@ def load_provisioning_profile(path):
     clock = load_clock_profile(document["clock"]) if "clock" in document else None
     dns = load_dns_profile(document["dns"]) if "dns" in document else None
     video = load_video_profile(document["video"]) if "video" in document else None
-    return VigiInitializationConfig(email=email, clock=clock, dns=dns, video=video, **values)
+    platform_access = None
+    if "platform_access" in document:
+        section = document["platform_access"]
+        if not isinstance(section, dict) or set(section) != {"enabled"} or type(section["enabled"]) is not bool:
+            raise ValueError("Expected a boolean enabled field in [platform_access].")
+        platform_access = section["enabled"]
+    return VigiInitializationConfig(
+        email=email, clock=clock, dns=dns, video=video,
+        platform_access=platform_access, **values,
+    )
 
 
 def load_video_profile(video):

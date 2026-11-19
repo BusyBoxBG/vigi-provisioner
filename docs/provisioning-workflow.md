@@ -79,3 +79,7 @@ When the inventory has a nonempty `label_serial`, the workflow applies that exac
 ### Main-stream video profile
 
 Copy the optional [video] table from provisioning.example.toml into the site profile. The current implementation accepts the tested H265, 1920x1080, 15 fps, VBR High (quality 5), 2048 kbps profile with smart codec disabled. It writes the complete observed video.main payload over pinned HTTPS after regional settings and before the ONVIF IP move, then verifies every requested field. The firmware encodes 15 fps as 65551. ONVIF configured the base encoder successfully but the UI showed H265+ until smart_codec was disabled through HTTPS. The complete HTTPS request and readback passed on hardware. The integrated profile awaits its next factory provisioning run.
+
+### Platform Access
+
+The optional `[platform_access]` table has a boolean `enabled` setting. Set it to `false` to disable Platform Access. The workflow reads `cloud_config.cloud_connect.enable`, writes `off` if required, and verifies the result before the ONVIF network move. The browser write and subsequent readback returned code zero with `enable: off` on the test camera. The integrated profile step awaits its next provisioning run.

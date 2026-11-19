@@ -41,3 +41,6 @@ bitrate_mode = "vbr"
 quality = "high"
 max_bitrate_kbps = 2048
 smart_codec = false
+
+[platform_access]
+enabled = false
