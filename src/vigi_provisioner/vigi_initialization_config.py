@@ -31,6 +31,7 @@ class VigiInitializationConfig:
     time_zone: str = "UTC+02:00"
     clock: ClockProfile | None = None
     dns: tuple[str, str] | None = None
+    video: dict | None = None
 
     def timezone_request(self):
         return {
@@ -81,7 +82,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -104,7 +105,24 @@ def load_provisioning_profile(path):
         raise ValueError("Power-line frequency must be 50hz or 60hz.")
     clock = load_clock_profile(document["clock"]) if "clock" in document else None
     dns = load_dns_profile(document["dns"]) if "dns" in document else None
-    return VigiInitializationConfig(email=email, clock=clock, dns=dns, **values)
+    video = load_video_profile(document["video"]) if "video" in document else None
+    return VigiInitializationConfig(email=email, clock=clock, dns=dns, video=video, **values)
+
+
+def load_video_profile(video):
+    expected = {
+        "codec": "H265", "width": 1920, "height": 1080, "fps": 15,
+        "bitrate_mode": "vbr", "quality": "high", "max_bitrate_kbps": 2048,
+        "smart_codec": False,
+    }
+    if not isinstance(video, dict) or set(video) != set(expected):
+        raise ValueError("Expected all video fields from provisioning.example.toml.")
+    if any(type(video[key]) is not type(value) or video[key] != value for key, value in expected.items()):
+        raise ValueError("Video profile currently supports the verified H265, 1080p, 15 fps, VBR High, 2048 kbps settings.")
+    return {
+        "encode_type": "H265", "resolution": "1920*1080", "frame_rate": "65551",
+        "quality": "5", "bitrate_type": "vbr", "bitrate": 2048, "smart_codec": "off",
+    }
 
 
 def load_dns_profile(dns):

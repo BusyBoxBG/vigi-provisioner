@@ -258,6 +258,29 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def configure_video(camera, path, target):
+    def read():
+        _, result = camera.post(
+            "Read main-stream video",
+            {"method": "get", "video": {"name": ["main"]}}, path=path,
+        )
+        main = result.get("video", {}).get("main")
+        if not isinstance(main, dict):
+            raise ProvisioningError("Missing main-stream video readback.")
+        return main
+
+    actual = read()
+    if any(str(actual.get(field)) != str(value) for field, value in target.items()):
+        camera.post(
+            "Write main-stream video",
+            {"method": "set", "video": {"main": dict(target)}}, path=path,
+        )
+        actual = read()
+    if any(str(actual.get(field)) != str(value) for field, value in target.items()):
+        raise ProvisioningError("Main-stream video readback differs from the requested profile.")
+    print("Verified main stream: H265, smart codec off, 1920x1080, 15 fps, VBR High, 2048 kbps.")
+
+
 def read_dns(camera, path, plan):
     _, result = camera.post(
         "Read DNS settings",
@@ -479,6 +502,8 @@ def provision(args):
         if alias is not None:
             configure_device_alias(camera, path, alias)
         configure_region(camera, path, config)
+        if config.video is not None:
+            configure_video(camera, path, config.video)
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(

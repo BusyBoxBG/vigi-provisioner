@@ -75,3 +75,7 @@ See the [Python file reference](python-reference.md) for links to every package 
 ### Inventory serial as Device Name
 
 When the inventory has a nonempty `label_serial`, the workflow applies that exact value to `system.sys.dev_alias` after login and verifies the URL-decoded readback. For the test camera, enter `22630k7001456` in the GUI serial field. Existing inventories without a serial retain their current naming behavior. A live authenticated HTTPS test on the configured camera at 192.168.0.150 set and read back `22630k7001456` successfully without a factory reset. The complete factory workflow includes this step after login; the live alias test was a separate operation.
+
+### Main-stream video profile
+
+Copy the optional [video] table from provisioning.example.toml into the site profile. The current implementation accepts the tested H265, 1920x1080, 15 fps, VBR High (quality 5), 2048 kbps profile with smart codec disabled. It writes the complete observed video.main payload over pinned HTTPS after regional settings and before the ONVIF IP move, then verifies every requested field. The firmware encodes 15 fps as 65551. ONVIF configured the base encoder successfully but the UI showed H265+ until smart_codec was disabled through HTTPS. The complete HTTPS request and readback passed on hardware. The integrated profile awaits its next factory provisioning run.

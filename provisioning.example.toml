@@ -31,3 +31,13 @@ end_hour = 4
 [dns]
 primary = "84.54.128.100"
 secondary = "8.8.8.8"
+
+[video]
+codec = "H265"
+width = 1920
+height = 1080
+fps = 15
+bitrate_mode = "vbr"
+quality = "high"
+max_bitrate_kbps = 2048
+smart_codec = false
