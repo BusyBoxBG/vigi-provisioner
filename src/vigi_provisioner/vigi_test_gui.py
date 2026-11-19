@@ -24,7 +24,7 @@ button{background:#087b70;color:white;border:0;border-radius:5px;padding:11px 16
 button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
-</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р’В· Ubuntu test console</header>
+</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р вЂ™Р’В· Ubuntu test console</header>
 <main><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
@@ -181,10 +181,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--bind", default="127.0.0.1", help="Local IPv4 interface address to serve on")
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--worker",action="store_true",help=argparse.SUPPRESS)
     parser.add_argument("--device-id",help=argparse.SUPPRESS)
     args = parser.parse_args()
+    args.bind = str(ipaddress.IPv4Address(args.bind))
+    if args.bind == "0.0.0.0":
+        parser.error("Choose a specific interface IPv4 address for --bind.")
+    if not 1 <= args.port <= 65535:
+        parser.error("Port must be between 1 and 65535.")
     if args.worker:
         worker(args)
         return
@@ -209,11 +215,11 @@ def main():
             self.wfile.write(payload)
 
         def authorized(self):
-            return self.headers.get("Host") == f"127.0.0.1:{args.port}"
+            return self.headers.get("Host") == f"{args.bind}:{args.port}"
 
         def do_GET(self):
             if not self.authorized():
-                self.reply(403,dict(error="Use the local GUI address."))
+                self.reply(403,dict(error="Use the configured GUI address."))
                 return
             if self.path == "/":
                 body = PAGE.replace("__TOKEN__",app.token).encode()
@@ -251,8 +257,8 @@ def main():
             except (ValueError,KeyError,sqlite3.Error,OSError) as exc:
                 self.reply(400,dict(error=str(exc)))
 
-    server = ThreadingHTTPServer(("127.0.0.1",args.port),Handler)
-    print(f"Open http://127.0.0.1:{args.port} in your browser.",flush=True)
+    server = ThreadingHTTPServer((args.bind,args.port),Handler)
+    print(f"Open http://{args.bind}:{args.port} in your browser.",flush=True)
     try:
         server.serve_forever()
     finally:

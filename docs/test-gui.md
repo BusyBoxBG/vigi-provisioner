@@ -9,7 +9,7 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_test_gui \
   --config provisioning.toml
 ```
 
-Open http://127.0.0.1:8765 in the Ubuntu browser. From Windows, forward the local port with `ssh -L 8765:127.0.0.1:8765 USER@UBUNTU_ADDRESS`, then open the same local URL. The server binds to Ubuntu loopback.
+Open http://127.0.0.1:8765 in the Ubuntu browser. From Windows, forward the local port with `ssh -L 8765:127.0.0.1:8765 USER@UBUNTU_ADDRESS`, then open the same local URL. The default bind address is Ubuntu loopback. To serve the GUI on the VM management interface, add `--bind 192.168.10.143` and open http://192.168.10.143:8765 from Windows. Requests must use that configured address. The service has no user login, so this listener gives management-LAN clients access to the provisioning controls and credential prompts. Camera traffic continues to use the existing camera-facing interface at 192.168.0.10.
 
 Enter scanned Device ID, MAC and label serial, model and the approved IP/netmask/gateway. The form adds inventory records and enforces unique IDs, MACs and target IPs. Existing records are displayed. This first version has no edit or delete control. Additional models can be recorded. The current provisioning engine still requires the tested VIGI C320I and lab subnet.
 
