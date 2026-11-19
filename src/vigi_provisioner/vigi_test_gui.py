@@ -24,7 +24,7 @@ button{background:#087b70;color:white;border:0;border-radius:5px;padding:11px 16
 button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
-</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р В РІР‚в„ўР вЂ™Р’В· Ubuntu test console</header>
+</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В· Ubuntu test console</header>
 <main><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
@@ -44,7 +44,7 @@ async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",h
 function cell(row,text){let td=document.createElement("td");td.textContent=text;row.append(td)}
 async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;
 let table=document.getElementById("rows");let selected=document.querySelector("input[name=selected]:checked")?.value;table.replaceChildren();
-for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));cell(row,c.label_serial+" / "+c.approved_ipv4+"/"+c.prefix_length);cell(row,c.status);table.append(row)}
+for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"ready");table.append(row)}
 pending=s.prompt;document.getElementById("prompt").hidden=!pending;if(pending){document.getElementById("question").textContent=pending.text;document.getElementById("answer").type=pending.secret?"password":"text"}
 }catch(e){document.getElementById("message").textContent=e.message}}
 document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";refresh()}catch(e){document.getElementById("message").textContent=e.message}};
@@ -247,6 +247,19 @@ def main():
                         if app.running:
                             raise ValueError("Wait for the active run before editing inventory.")
                         save_camera(database,data)
+                elif self.path == "/api/serial":
+                    serial = str(data["label_serial"]).strip()
+                    if not serial or len(serial) > 128:
+                        raise ValueError("Enter a label serial number of up to 128 characters.")
+                    with app.lock, closing(sqlite3.connect(database)) as db, db:
+                        if app.running:
+                            raise ValueError("Wait for the active run before editing inventory.")
+                        result = db.execute(
+                            "UPDATE camera_inventory SET label_serial=? WHERE device_id=?",
+                            (serial, data["device_id"]),
+                        )
+                        if result.rowcount != 1:
+                            raise ValueError("Camera record not found.")
                 elif self.path == "/api/start":
                     app.start(data["device_id"])
                 elif self.path == "/api/answer":
