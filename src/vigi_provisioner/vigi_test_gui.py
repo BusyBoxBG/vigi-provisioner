@@ -25,7 +25,7 @@ button{background:#087b70;color:white;border:0;border-radius:5px;padding:11px 16
 button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
-</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р В Р’В Р вЂ™Р’В Р В Р вЂ Р В РІР‚С™Р Р†РІР‚С›РЎС›Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В· Ubuntu test console</header>
+</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup &middot; Ubuntu test console</header>
 <main><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
@@ -251,9 +251,10 @@ def main():
                 self.reply(403,dict(error="Use the configured GUI address."))
                 return
             if self.path.split("?", 1)[0] == "/":
-                body = PAGE.replace("__TOKEN__",app.token).encode()
+                body = PAGE.replace("__TOKEN__",app.token).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type","text/html; charset=utf-8")
+                self.send_header("Content-Length",str(len(body)))
                 self.send_header("Cache-Control","no-store")
                 self.end_headers()
                 self.wfile.write(body)
