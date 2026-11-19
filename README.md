@@ -136,6 +136,10 @@ Provisioning complete. Recovery email was submitted during activation.
 
 The recovery email was submitted during activation and was not independently read back. NTP readback verifies the saved configuration. Actual clock synchronization and DNS resolution were outside this test. The inventory remains read-only. If execution stops after activation or an ONVIF write, check the current camera state and address before attempting another run.
 
+## Test GUI
+
+Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a camera, follow the live step log and answer provisioning prompts. It runs on the Ubuntu host with the same TOML profile and SQLite inventory.
+
 ## Protocol and source documentation
 
 - [Provisioning workflow and component map](docs/provisioning-workflow.md)

@@ -2,7 +2,7 @@
 
 For the role of each component in the live sequence, see [Provisioning workflow](provisioning-workflow.md#files-used-by-each-stage).
 
-All 103 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
+All 104 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
 
 ## Package and verification
 
@@ -822,3 +822,7 @@ Covers supported password transformations and invalid algorithms or empty inputs
 ### test_rsa_validation.py
 
 Uses synthetic keys to check RSA key sizes, invalid key input and long-password handling. [Source](../tests/test_rsa_validation.py)
+
+### vigi_test_gui.py
+
+Local loopback HTTP server, inventory form and live provisioning console. A child worker runs the existing factory workflow and exchanges prompt responses over pipes. Adds inventory metadata columns and records discovery observations and run status. [Source](../src/vigi_provisioner/vigi_test_gui.py)
