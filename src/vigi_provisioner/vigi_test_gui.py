@@ -24,7 +24,7 @@ button{background:#087b70;color:white;border:0;border-radius:5px;padding:11px 16
 button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
-</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup В· Ubuntu test console</header>
+</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р’В· Ubuntu test console</header>
 <main><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
@@ -55,7 +55,7 @@ refresh();setInterval(refresh,1000);
 
 
 def initialize_inventory(path):
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db, db:
         db.execute("""CREATE TABLE IF NOT EXISTS camera_inventory (
             device_id TEXT PRIMARY KEY, mac_address TEXT NOT NULL UNIQUE,
             model TEXT NOT NULL, approved_ipv4 TEXT NOT NULL UNIQUE,
@@ -84,7 +84,7 @@ def save_camera(path, data):
     serial, model = data["label_serial"].strip(), data["model"].strip()
     if not serial or not model:
         raise ValueError("Label serial and model are required.")
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db, db:
         db.execute("""INSERT INTO camera_inventory
             (device_id,mac_address,label_serial,model,approved_ipv4,prefix_length,gateway_ipv4)
             VALUES (?,?,?,?,?,?,?)""",
@@ -108,7 +108,7 @@ class Application:
             return dict(cameras=cameras, log=list(self.log), prompt=self.prompt, running=self.running)
 
     def start(self, device_id):
-        with self.lock, sqlite3.connect(self.database) as db:
+        with self.lock, closing(sqlite3.connect(self.database)) as db, db:
             if self.running:
                 raise ValueError("A provisioning run is already active.")
             row = db.execute("SELECT model FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
@@ -131,13 +131,13 @@ class Application:
                     self.prompt = json.loads(line[len("GUI_PROMPT "):])
                 elif line.startswith("GUI_OBSERVATION "):
                     observations = json.loads(line[len("GUI_OBSERVATION "):])
-                    with sqlite3.connect(self.database) as db:
+                    with closing(sqlite3.connect(self.database)) as db, db:
                         db.execute("UPDATE camera_inventory SET firmware=?,observed_metadata=? WHERE device_id=?",
                                    (observations.get("firmware"), json.dumps(observations), device_id))
                 else:
                     self.log.append(line.rstrip())
         code = self.process.wait()
-        with self.lock, sqlite3.connect(self.database) as db:
+        with self.lock, closing(sqlite3.connect(self.database)) as db, db:
             self.running, self.prompt = False, None
             self.log.append("Run completed." if code == 0 else "Run stopped. Check camera state before retrying.")
             db.execute("UPDATE camera_inventory SET status=? WHERE device_id=?",
