@@ -8,6 +8,7 @@ Factory-to-static-IP provisioning for TP-Link VIGI cameras on an isolated corpor
 | --- | --- |
 | Camera | TP-Link VIGI C320I, firmware `2.2.1 Build 260605 Rel.12620n` |
 | Scanned Device ID | `1326062CFD849E902` |
+| Label serial / Device Name | `22630k7001456` |
 | Scanned MAC | `18:69:45:9F:31:F7` |
 | Ubuntu camera-facing IPv4 | `192.168.0.10/24` |
 | Windows camera-facing IPv4, if connected | `192.168.0.100/24` |
@@ -46,13 +47,16 @@ CREATE TABLE camera_inventory (
     model TEXT NOT NULL,
     approved_ipv4 TEXT NOT NULL UNIQUE,
     prefix_length INTEGER NOT NULL CHECK (prefix_length BETWEEN 1 AND 30),
-    gateway_ipv4 TEXT NOT NULL
+    gateway_ipv4 TEXT NOT NULL,
+    label_serial TEXT
 );
 INSERT INTO camera_inventory VALUES
     ('1326062CFD849E902', '1869459F31F7', 'VIGI C320I',
-     '192.168.0.150', 24, '192.168.0.1');
+     '192.168.0.150', 24, '192.168.0.1', '22630k7001456');
 SQL
 ```
+
+The GUI's Edit serial button can fill an existing record. The workflow uses the label serial exactly as entered, including capitalization, as the camera Device Name (`system.sys.dev_alias`). Missing serials preserve the existing device name.
 
 The CLI opens the database read-only. The factory camera must report both identifiers before HTTPS activation. The C320I Device ID comes from TP-Link discovery TLV `0x0018`, whose observed value wraps the printed ID as `TP1<device-id>020`.
 
@@ -115,7 +119,7 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
 
 1. Review the discovered Device ID, MAC, and approved assignment. The CLI shows the fresh certificate fingerprint. Type `APPROVE` only for the intended camera on the isolated LAN. This trusts the observed certificate for the run. Supply a separately verified `--pin` if required.
 2. Type `192.168.0.150` to confirm the target is unused and reserved, then enter the shared admin password twice.
-3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings.
+3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings.
 4. ONVIF checks the current interface MAC and token, writes the gateway first, and sets static IPv4 and prefix with DHCP disabled. A fresh authenticated read at the new address verifies the assignment.
 5. With the DNS profile enabled, the CLI checks the HTTPS certificate at the new address. In the live test it had changed, so the operator approved the newly observed fingerprint before DNS login. When using a separately verified `--pin`, enter a newly verified fingerprint if it changes.
 6. The CLI writes only the two DNS fields over pinned HTTPS and waits for both saved and active WAN values to match the profile. It checks the approved IP, netmask, and gateway during readback.
@@ -125,6 +129,7 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
 The live TOML-driven test reported:
 
 ```text
+Verified device name: 22630k7001456.
 Verified date format, manual DST and custom NTP configuration.
 Verified English, UTC+02:00, Europe/Vilnius, 50hz.
 Country/Region readback: (empty)

@@ -40,7 +40,7 @@ On the isolated provisioning segment, review the inventory match and observed SH
 1. Broadcast the TP-Link discovery probe on UDP port 5001 from the camera-facing interface. Record the reply source IPv4, MAC, model, factory flag and advertised ONVIF endpoint. Match the MAC to the intended camera. A factory flag of `0` is a hint from discovery.
 2. On a confirmed factory-state camera, create the `admin` account over HTTPS port 443 with the chosen password, recovery email and language. The browser uses `POST /` with `method: do` and a `set_password` object. See the [HTTPS guide](https-initialization.md) for the difference between the captured browser request and the current packaged builder.
 3. Authenticate with the new credentials, then apply the combined time-zone and frequency settings through the authenticated HTTPS session. Check both settings with separate reads. For the Bulgaria profile, the verified values are English, `UTC+02:00`, `Europe/Vilnius` and `50hz`. Keep `BG` as a provisioning input. The camera's `system.basic.country_region` read back empty.
-4. The browser also sent the device alias and clock in separate requests. The six-field workflow requires the time-zone configuration. Reproducing the browser's clock, name, telemetry and audio writes is a separate scope decision.
+4. After login, the workflow applies a nonempty inventory label serial to `system.sys.dev_alias` and verifies its readback. The browser's separate clock, telemetry and audio writes are outside the current factory workflow.
 
 See [TP-Link UDP discovery](tplink-discovery.md) for packet framing and the distinction from the legacy UDP code.
 
@@ -74,4 +74,4 @@ See the [Python file reference](python-reference.md) for links to every package 
 
 ### Inventory serial as Device Name
 
-When the inventory has a nonempty `label_serial`, the workflow applies that exact value to `system.sys.dev_alias` after login and verifies the URL-decoded readback. For the test camera, enter `22630k7001456` in the GUI serial field. Existing inventories without a serial retain their current naming behavior.
+When the inventory has a nonempty `label_serial`, the workflow applies that exact value to `system.sys.dev_alias` after login and verifies the URL-decoded readback. For the test camera, enter `22630k7001456` in the GUI serial field. Existing inventories without a serial retain their current naming behavior. A live authenticated HTTPS test on the configured camera at 192.168.0.150 set and read back `22630k7001456` successfully without a factory reset. The complete factory workflow includes this step after login; the live alias test was a separate operation.

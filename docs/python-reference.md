@@ -194,7 +194,7 @@ Direct package dependencies: `vigi_socket_deadline`.
 
 ### vigi_factory_workflow.py
 
-Single-camera CLI that connects the tested UDP discovery, pinned HTTPS factory activation, authenticated regional settings, and ONVIF static IPv4 write and readback. [Source](../src/vigi_provisioner/vigi_factory_workflow.py)
+Single-camera CLI that connects inventory-matched UDP discovery, pinned HTTPS activation, inventory label serial as Device Name, regional/clock settings, ONVIF static IPv4 verification and HTTPS DNS readback. [Source](../src/vigi_provisioner/vigi_factory_workflow.py)
 
 ### vigi_fixed_initialization_attempt.py
 
@@ -825,4 +825,4 @@ Uses synthetic keys to check RSA key sizes, invalid key input and long-password 
 
 ### vigi_test_gui.py
 
-Local loopback HTTP server, inventory form and live provisioning console. A child worker runs the existing factory workflow and exchanges prompt responses over pipes. Adds inventory metadata columns and records discovery observations and run status. [Source](../src/vigi_provisioner/vigi_test_gui.py)
+Local HTTP server with a configurable bind address, inventory form, serial editor and live provisioning console. A child worker runs the factory workflow and exchanges prompt responses over pipes. Adds inventory metadata columns, merges discovery and authenticated ONVIF information, and records run status. [Source](../src/vigi_provisioner/vigi_test_gui.py)

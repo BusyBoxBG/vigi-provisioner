@@ -73,6 +73,16 @@ The shared TOML clock profile sends a date and DST write under `system.basic` an
 
 After live ONVIF readback at the new static IP, the CLI verifies the original certificate pin or obtains explicit approval for a changed certificate. It then sends a DNS-only `set` under `protocol.static` with `pri_dns: "84.54.128.100"` and `snd_dns: "8.8.8.8"`. Success requires those values in both `protocol.static` and `network.wan_status`, with the approved network assignment intact. Active DNS lagged saved DNS during testing.
 
+### Device Name from inventory
+
+The workflow reads the optional inventory `label_serial` before activation. After a fresh login, it reads the current alias with:
+
+```json
+{"method":"get","system":{"name":["sys","basic"]}}
+```
+
+If it differs, it sends `{"method":"set","system":{"sys":{"dev_alias":"22630k7001456"}}}` for the test record and repeats the read. The alias is URL-encoded for the write and URL-decoded for comparison. The live test at 192.168.0.150 returned code zero for login, the write and verification, with `22630k7001456` read back exactly. This can also be tested on an initialized camera without a reset.
+
 ### Country mapping from the Config Tool
 
 The saved Java disassembly copies `country` to the initialization DTO. Its IPC settings builders emit time zone, zone ID and flicker. The NVR branch emits country as `system.basic.location`. A separate European-country branch queries initialization module support. The C320I browser capture showed no country write and returned empty `system.basic.country_region`. Keep `BG` in input metadata and report device-side Country/Region as unverified.
