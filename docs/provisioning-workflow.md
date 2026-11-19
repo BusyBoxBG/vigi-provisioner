@@ -71,3 +71,7 @@ The factory-to-configured Ubuntu run verified the optional clock and DNS profile
 | ONVIF readback and evidence | `vigi_onvif_config_response.py` classifies acknowledgements. `vigi_static_ip_verification.py` compares fresh observations with the plan. `vigi_provisioning_evidence.py` binds evidence to the assignment. `vigi_provisioning_state.py` records SQLite state transitions. |
 
 See the [Python file reference](python-reference.md) for links to every package file, legacy UDP and Solar modules, scripts and tests.
+
+### Inventory serial as Device Name
+
+When the inventory has a nonempty `label_serial`, the workflow applies that exact value to `system.sys.dev_alias` after login and verifies the URL-decoded readback. For the test camera, enter `22630k7001456` in the GUI serial field. Existing inventories without a serial retain their current naming behavior.

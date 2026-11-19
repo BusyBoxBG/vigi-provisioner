@@ -314,6 +314,47 @@ def configure_dns(pin, password, plan, target):
     print(f"Verified saved and active DNS: {target[0]} and {target[1]}.")
 
 
+def configure_device_alias(camera, path, alias):
+    _, result = camera.post(
+        "Read device name", {"method": "get", "system": {"name": ["sys", "basic"]}},
+        path=path,
+    )
+    actual = result.get("system", {}).get("sys", {}).get("dev_alias")
+    if not isinstance(actual, str):
+        raise ProvisioningError("Device name is missing from camera readback.")
+    if unquote(actual) != alias:
+        camera.post(
+            "Write device name",
+            {"method": "set", "system": {"sys": {"dev_alias": quote(alias, safe="")}}},
+            path=path,
+        )
+        _, result = camera.post(
+            "Verify device name",
+            {"method": "get", "system": {"name": ["sys", "basic"]}}, path=path,
+        )
+        actual = result.get("system", {}).get("sys", {}).get("dev_alias")
+    if not isinstance(actual, str) or unquote(actual) != alias:
+        raise ProvisioningError("Device name readback differs from the inventory serial.")
+    print(f"Verified device name: {alias}.")
+
+
+def load_inventory_alias(database, device_id):
+    uri = Path(database).resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(camera_inventory)")}
+        if "label_serial" not in columns:
+            return None
+        row = db.execute(
+            "SELECT label_serial FROM camera_inventory WHERE device_id=?", (device_id,)
+        ).fetchone()
+    alias = row[0] if row else None
+    if alias is None or alias == "":
+        return None
+    if not isinstance(alias, str) or len(alias.encode("utf-8")) > 128 or any(ord(c) < 32 for c in alias):
+        raise ProvisioningError("Inventory label serial is invalid for the device name.")
+    return alias
+
+
 def load_inventory_assignment(database, device_id):
     uri = Path(database).resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
@@ -366,6 +407,7 @@ def provision(args):
     )
     config = profile or VigiInitializationConfig(zone_id="Europe/Vilnius")
     print(f"Regional profile country: {config.country} (inventory intent).")
+    alias = load_inventory_alias(args.inventory, args.device_id) if args.inventory else None
     compact_mac = normalize_mac(args.mac)
     mac = "-".join(compact_mac[i:i + 2] for i in range(0, 12, 2))
     pin = normalize_sha256_pin(args.pin) if args.pin else None
@@ -434,6 +476,8 @@ def provision(args):
 
     try:
         path = login(camera, password)
+        if alias is not None:
+            configure_device_alias(camera, path, alias)
         configure_region(camera, path, config)
         configure_network(plan, password)
         if config.dns is not None:

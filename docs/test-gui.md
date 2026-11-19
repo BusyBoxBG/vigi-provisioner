@@ -15,7 +15,7 @@ Enter scanned Device ID, MAC and label serial, model and the approved IP/netmask
 
 Select a factory-state camera and start provisioning. The step log streams output from the existing CLI. Answer fingerprint approval and target-IP confirmation prompts with the values requested. Password and recovery-email inputs are hidden and sent to the worker in memory. Credentials are not put in the database or log.
 
-The GUI adds label serial, firmware, status, observation metadata and last-run time columns to the inventory. UDP discovery observations are retained with the selected record. Missing observations remain unknown. The label serial is operator-supplied and is not compared against the QR field. The engine authorizes the camera using its MAC and Device ID.
+The GUI adds label serial, firmware, status, observation metadata and last-run time columns to the inventory. UDP discovery observations are retained with the selected record. Missing observations remain unknown. The label serial is operator-supplied and is used as the HTTPS device name (system.sys.dev_alias), preserving the entered capitalization. The workflow reads the name back after writing it. The serial is independent of the QR identity field. The engine authorizes the camera using its MAC and Device ID.
 
 One run can be active at a time. Keep the GUI server running through completion. Closing the browser allows reconnection to the current prompts. The interface uses the existing provisioning engine and its site TOML, certificate approval and ONVIF/HTTPS verification.
 
