@@ -45,7 +45,7 @@ async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",h
 function cell(row,text){let td=document.createElement("td");td.textContent=text;row.append(td)}
 async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;
 let table=document.getElementById("rows");let selected=document.querySelector("input[name=selected]:checked")?.value;table.replaceChildren();
-for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"ready");
+for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"unverified");
 let actions=document.createElement("td"),remove=document.createElement("button");
 remove.textContent="Delete";remove.style.background="#a33838";remove.disabled=s.running;
 remove.onclick=async()=>{
@@ -70,11 +70,14 @@ def initialize_inventory(path):
             prefix_length INTEGER NOT NULL, gateway_ipv4 TEXT NOT NULL)""")
         existing = {row[1] for row in db.execute("PRAGMA table_info(camera_inventory)")}
         for name, declaration in {
-            "label_serial": "TEXT", "firmware": "TEXT", "status": "TEXT DEFAULT 'ready'",
+            "label_serial": "TEXT", "firmware": "TEXT", "status": "TEXT DEFAULT 'unverified'",
             "observed_metadata": "TEXT", "last_run_at": "TEXT",
         }.items():
             if name not in existing:
                 db.execute(f"ALTER TABLE camera_inventory ADD COLUMN {name} {declaration}")
+        db.execute(
+            "UPDATE camera_inventory SET status='unverified' WHERE status='ready' OR status IS NULL"
+        )
 
 
 def save_camera(path, data):
@@ -94,8 +97,8 @@ def save_camera(path, data):
         raise ValueError("Label serial and model are required.")
     with closing(sqlite3.connect(path)) as db, db:
         db.execute("""INSERT INTO camera_inventory
-            (device_id,mac_address,label_serial,model,approved_ipv4,prefix_length,gateway_ipv4)
-            VALUES (?,?,?,?,?,?,?)""",
+            (device_id,mac_address,label_serial,model,approved_ipv4,prefix_length,gateway_ipv4,status)
+            VALUES (?,?,?,?,?,?,?,'unverified')""",
             (device_id,mac,serial,model,str(interface.ip),interface.network.prefixlen,str(gateway)))
 
 

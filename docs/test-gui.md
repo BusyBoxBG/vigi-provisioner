@@ -20,3 +20,5 @@ The GUI adds label serial, firmware, status, observation metadata and last-run t
 One run can be active at a time. Keep the GUI server running through completion. Closing the browser allows reconnection to the current prompts. The interface uses the existing provisioning engine and its site TOML, certificate approval and ONVIF/HTTPS verification.
 
 The GUI completed a live factory-to-configured Ubuntu run, including certificate confirmation at both addresses, regional and clock configuration, ONVIF network verification and saved/active DNS verification. A separate HTTPS test verified setting Device Name to the inventory label serial. Firmware metadata collection was added after that GUI run and remains to be verified in a subsequent GUI run.
+
+New inventory records show `unverified` until a provisioning run checks the camera. Entering a label does not establish factory state. Startup migrates the older `ready` status to `unverified`. Completed runs show `verified`, active runs show `running`, and interrupted runs show `stopped`.
