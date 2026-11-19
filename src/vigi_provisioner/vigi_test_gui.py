@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .vigi_pin_inventory import normalize_mac
 
-PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
+PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
 <style>
 body{font:16px "Segoe UI",sans-serif;background:#f0f3f5;color:#182f3b;margin:0}
 header{background:#143b43;color:white;padding:24px 5%}main{max-width:1200px;margin:28px auto;padding:0 20px}
@@ -24,7 +24,7 @@ button{background:#087b70;color:white;border:0;border-radius:5px;padding:11px 16
 button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
-</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р вЂ™Р’В· Ubuntu test console</header>
+</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р В РІР‚в„ўР вЂ™Р’В· Ubuntu test console</header>
 <main><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
@@ -221,7 +221,7 @@ def main():
             if not self.authorized():
                 self.reply(403,dict(error="Use the configured GUI address."))
                 return
-            if self.path == "/":
+            if self.path.split("?", 1)[0] == "/":
                 body = PAGE.replace("__TOKEN__",app.token).encode()
                 self.send_response(200)
                 self.send_header("Content-Type","text/html; charset=utf-8")
