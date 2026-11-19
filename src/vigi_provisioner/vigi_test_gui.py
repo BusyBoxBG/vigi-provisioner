@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .vigi_pin_inventory import normalize_mac
+from .vigi_onvif import get_device_information
 
 PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
 <style>
@@ -24,7 +25,7 @@ button{background:#087b70;color:white;border:0;border-radius:5px;padding:11px 16
 button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
-</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В· Ubuntu test console</header>
+</style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup Р В Р’В Р вЂ™Р’В Р В Р вЂ Р В РІР‚С™Р Р†РІР‚С›РЎС›Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В· Ubuntu test console</header>
 <main><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
@@ -132,8 +133,15 @@ class Application:
                 elif line.startswith("GUI_OBSERVATION "):
                     observations = json.loads(line[len("GUI_OBSERVATION "):])
                     with closing(sqlite3.connect(self.database)) as db, db:
-                        db.execute("UPDATE camera_inventory SET firmware=?,observed_metadata=? WHERE device_id=?",
-                                   (observations.get("firmware"), json.dumps(observations), device_id))
+                        previous = db.execute(
+                            "SELECT observed_metadata FROM camera_inventory WHERE device_id=?", (device_id,)
+                        ).fetchone()
+                        merged = json.loads(previous[0]) if previous and previous[0] else {}
+                        merged.update({key: value for key, value in observations.items() if value is not None})
+                        db.execute(
+                            "UPDATE camera_inventory SET firmware=?,observed_metadata=? WHERE device_id=?",
+                            (merged.get("firmware"), json.dumps(merged), device_id),
+                        )
                 else:
                     self.log.append(line.rstrip())
         code = self.process.wait()
@@ -169,10 +177,31 @@ def worker(args):
         cameras = discover(*a, **kw)
         wanted = workflow.load_inventory_assignment(args.inventory,args.device_id)[0]
         matches = [c for c in cameras if normalize_mac(c["mac"]) == normalize_mac(wanted)]
-        if len(matches) == 1:
+        if matches:
             print("GUI_OBSERVATION " + json.dumps(matches[0]), flush=True)
         return cameras
     workflow.discover = observe
+    configure_network = workflow.configure_network
+
+    def configure_and_observe(plan, password):
+        configure_network(plan, password)
+        endpoint = f"http://{plan['target_ip']}:80/onvif/device_service"
+        try:
+            info = get_device_information(endpoint, "admin", password)
+            observations = {
+                "firmware": info.get("FirmwareVersion"),
+                "onvif_model": info.get("Model"),
+                "manufacturer": info.get("Manufacturer"),
+                "onvif_serial": info.get("SerialNumber"),
+                "hardware_id": info.get("HardwareId"),
+                "last_verified_ipv4": plan["target_ip"],
+            }
+            print("GUI_OBSERVATION " + json.dumps(observations), flush=True)
+            print("ONVIF inventory metadata collected.", flush=True)
+        except Exception as exc:
+            print(f"Device information read failed ({type(exc).__name__}). Network verification passed.", flush=True)
+
+    workflow.configure_network = configure_and_observe
     sys.argv = [sys.argv[0],"--inventory",args.inventory,"--config",args.config,"--device-id",args.device_id]
     workflow.main()
 
