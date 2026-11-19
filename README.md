@@ -65,10 +65,15 @@ The CLI opens the database read-only. The factory camera must report both identi
 Copy [provisioning.example.toml](provisioning.example.toml) to `provisioning.toml` and set your recovery email. The successful run used these settings:
 
 ```toml
+# Copy to provisioning.toml and set the site recovery email.
+# Enter the shared password at the hidden runtime prompt.
+# Per-camera identity, serial and network assignment come from SQLite.
+
 [camera_defaults]
 username = "admin"
-recovery_email = "support@comnet.bg"
+recovery_email = "camera-support@example.com"
 language = "English"
+# Intended country; the test camera reports an empty country_region.
 country = "BG"
 time_zone = "UTC+02:00"
 zone_id = "Europe/Vilnius"
@@ -98,6 +103,21 @@ end_hour = 4
 [dns]
 primary = "84.54.128.100"
 secondary = "8.8.8.8"
+
+[video]
+codec = "H265"
+width = 1920
+height = 1080
+fps = 15
+bitrate_mode = "vbr"
+quality = "high"
+max_bitrate_kbps = 2048
+# false maps to the camera string "off" for plain H265.
+smart_codec = false
+
+# false maps to cloud_config.cloud_connect.enable = "off".
+[platform_access]
+enabled = false
 ```
 
 Copy the optional clock and DNS tables into an existing local profile to enable them. The clock profile uses DD-MM-YYYY, 24-hour time, and manual DST with a 60-minute adjustment from the last Sunday in March at 03:00 to the last Sunday in October at 04:00.
@@ -119,20 +139,22 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
 
 1. Review the discovered Device ID, MAC, and approved assignment. The CLI shows the fresh certificate fingerprint. Type `APPROVE` only for the intended camera on the isolated LAN. This trusts the observed certificate for the run. Supply a separately verified `--pin` if required.
 2. Type `192.168.0.150` to confirm the target is unused and reserved, then enter the shared admin password twice.
-3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings.
+3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings. With video and Platform Access enabled in the site profile, it verifies the main stream and disables Platform Access before the ONVIF move.
 4. ONVIF checks the current interface MAC and token, writes the gateway first, and sets static IPv4 and prefix with DHCP disabled. A fresh authenticated read at the new address verifies the assignment.
 5. With the DNS profile enabled, the CLI checks the HTTPS certificate at the new address. In the live test it had changed, so the operator approved the newly observed fingerprint before DNS login. When using a separately verified `--pin`, enter a newly verified fingerprint if it changes.
 6. The CLI writes only the two DNS fields over pinned HTTPS and waits for both saved and active WAN values to match the profile. It checks the approved IP, netmask, and gateway during readback.
 
 ## 5. Check the result
 
-The live TOML-driven test reported:
+The verified factory-to-configured settings include these completion messages:
 
 ```text
 Verified device name: 22630k7001456.
 Verified date format, manual DST and custom NTP configuration.
 Verified English, UTC+02:00, Europe/Vilnius, 50hz.
 Country/Region readback: (empty)
+Verified main stream: H265, smart codec off, 1920x1080, 15 fps, VBR High, 2048 kbps.
+Verified Platform Access: off.
 ONVIF writes: acknowledged. Reboot needed: False.
 Verified eth0: 192.168.0.150/24, DHCP disabled, gateway 192.168.0.1.
 Verified saved and active DNS: 84.54.128.100 and 8.8.8.8.
@@ -140,6 +162,8 @@ Provisioning complete. Recovery email was submitted during activation.
 ```
 
 The recovery email was submitted during activation and was not independently read back. NTP readback verifies the saved configuration. Actual clock synchronization and DNS resolution were outside this test. The inventory remains read-only. If execution stops after activation or an ONVIF write, check the current camera state and address before attempting another run.
+
+The full factory-reset and reconfiguration cycle also confirmed Platform Access disabled. The test camera uses the inventory label serial as Device Name and the configured plain H265 video profile.
 
 ## Test GUI
 

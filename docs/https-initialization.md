@@ -88,3 +88,9 @@ If it differs, it sends `{"method":"set","system":{"sys":{"dev_alias":"22630k700
 The saved Java disassembly copies `country` to the initialization DTO. Its IPC settings builders emit time zone, zone ID and flicker. The NVR branch emits country as `system.basic.location`. A separate European-country branch queries initialization module support. The C320I browser capture showed no country write and returned empty `system.basic.country_region`. Keep `BG` in input metadata and report device-side Country/Region as unverified.
 
 Evidence is from the saved local Config Tool disassembly excerpts `vigi_init_dto_complete.txt`, `vigi_init_json_builders.txt`, and `passthrough_init_service.txt`, plus the C320I browser capture and Ubuntu hardware test. These source artifacts are kept outside the repo.
+
+## Video and Platform Access
+
+The optional [video] profile sets the main stream to plain H265, 1920x1080, 15 fps, VBR High and maximum 2048 kbps. The camera fields are encode_type H265, resolution 1920*1080, frame_rate 65551, bitrate_type vbr, quality 5, bitrate 2048 and smart_codec off. ONVIF reported H265 while the UI showed H265+, so the HTTPS readback explicitly checks smart_codec.
+
+The workflow reads video.name ["main"], writes the requested fields under video.main, then verifies each field. The optional [platform_access] enabled=false maps to a set request under cloud_config.cloud_connect with enable off. The read request uses cloud_config.name ["cloud_connect"]; verification requires enable off. Both stages run before the ONVIF network move. The full factory-reset and reconfiguration cycle confirmed the intended video settings and disabled Platform Access.

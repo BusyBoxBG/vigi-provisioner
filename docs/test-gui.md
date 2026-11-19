@@ -22,3 +22,5 @@ One run can be active at a time. Keep the GUI server running through completion.
 The GUI completed a live factory-to-configured Ubuntu run, including certificate confirmation at both addresses, regional and clock configuration, ONVIF network verification and saved/active DNS verification. A separate HTTPS test verified setting Device Name to the inventory label serial. Firmware metadata collection was added after that GUI run and remains to be verified in a subsequent GUI run.
 
 New inventory records show `unverified` until a provisioning run checks the camera. Entering a label does not establish factory state. Existing records retain their stored status, including `ready`. Deleting a camera removes its inventory row and status. Re-adding that camera creates a new `unverified` record. Completed runs show `verified`, active runs show `running`, and interrupted runs show `stopped`.
+
+The shared profile includes video and Platform Access settings. The full factory-reset GUI cycle confirmed the intended main-stream configuration and disabled Platform Access. Existing inventory statuses are preserved, and new records start unverified.

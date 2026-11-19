@@ -1,7 +1,12 @@
+# Copy to provisioning.toml and set the site recovery email.
+# Enter the shared password at the hidden runtime prompt.
+# Per-camera identity, serial and network assignment come from SQLite.
+
 [camera_defaults]
 username = "admin"
 recovery_email = "camera-support@example.com"
 language = "English"
+# Intended country; the test camera reports an empty country_region.
 country = "BG"
 time_zone = "UTC+02:00"
 zone_id = "Europe/Vilnius"
@@ -40,7 +45,9 @@ fps = 15
 bitrate_mode = "vbr"
 quality = "high"
 max_bitrate_kbps = 2048
+# false maps to the camera string "off" for plain H265.
 smart_codec = false
 
+# false maps to cloud_config.cloud_connect.enable = "off".
 [platform_access]
 enabled = false

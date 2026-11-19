@@ -194,7 +194,7 @@ Direct package dependencies: `vigi_socket_deadline`.
 
 ### vigi_factory_workflow.py
 
-Single-camera CLI that connects inventory-matched UDP discovery, pinned HTTPS activation, inventory label serial as Device Name, regional/clock settings, ONVIF static IPv4 verification and HTTPS DNS readback. [Source](../src/vigi_provisioner/vigi_factory_workflow.py)
+Single-camera CLI that connects inventory-matched UDP discovery, pinned HTTPS activation, inventory label serial as Device Name, regional/clock settings, main-stream video, Platform Access, ONVIF static IPv4 verification and HTTPS DNS readback. [Source](../src/vigi_provisioner/vigi_factory_workflow.py)
 
 ### vigi_fixed_initialization_attempt.py
 
@@ -318,7 +318,7 @@ Direct package dependencies: `vigi_camera_binding`, `vigi_http_request`, `vigi_p
 
 ### vigi_initialization_config.py
 
-Validates initialization configuration and builds timezone and line-frequency request objects. [Source](../src/vigi_provisioner/vigi_initialization_config.py)
+Loads and validates the shared TOML profile with camera defaults, clock/DST/NTP, DNS, video and Platform Access settings. Builds regional and clock request objects. [Source](../src/vigi_provisioner/vigi_initialization_config.py)
 
 Public definitions: `VigiInitializationConfig`.
 
