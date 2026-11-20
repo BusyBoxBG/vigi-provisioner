@@ -14,6 +14,8 @@ from pathlib import Path
 
 from .vigi_pin_inventory import normalize_mac
 from .vigi_onvif import get_device_information
+from .vigi_discovery import discover
+from .vigi_onvif_live_transport import SOURCE_IP
 
 PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
 <style>
@@ -26,7 +28,10 @@ button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:1
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
 </style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup &middot; Ubuntu test console</header>
-<main><div class="grid"><section><h2>Add camera</h2><form id="add">
+<main><section><h2>Connected factory cameras</h2>
+<button id="probe" onclick="probe()">Discover uninitialized cameras</button>
+<p id="probeStatus" role="status"></p><pre id="probeDetails" hidden></pre>
+</section><div class="grid"><section><h2>Add camera</h2><form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
 <label>Label serial number</label><input name="label_serial" required>
@@ -53,9 +58,14 @@ if(!confirm("Delete inventory record for "+c.device_id+"? The camera settings wi
 try{await api("/api/delete",{device_id:c.device_id});document.getElementById("message").textContent="Inventory record deleted";await refresh()}
 catch(e){document.getElementById("message").textContent=e.message}};
 actions.append(remove);row.append(actions);table.append(row)}
+document.getElementById("probe").disabled=s.running||s.probing;
+document.getElementById("probeStatus").textContent=s.probe_status;
+let details=document.getElementById("probeDetails");details.hidden=s.discovered.length===0;
+details.textContent=JSON.stringify(s.discovered,null,2);
 pending=s.prompt;document.getElementById("prompt").hidden=!pending;if(pending){document.getElementById("question").textContent=pending.text;document.getElementById("answer").type=pending.secret?"password":"text"}
 }catch(e){document.getElementById("message").textContent=e.message}}
 document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";refresh()}catch(e){document.getElementById("message").textContent=e.message}};
+async function probe(){try{await api("/api/discover",{});refresh()}catch(e){document.getElementById("probeStatus").textContent=e.message}}
 async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function answer(){try{await api("/api/answer",{id:pending.id,value:document.getElementById("answer").value});document.getElementById("answer").value="";refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 refresh();setInterval(refresh,1000);
@@ -108,17 +118,56 @@ class Application:
         self.log = []
         self.prompt = None
         self.running = False
+        self.probing = False
+        self.discovered = []
+        self.probe_status = "Probe the camera-facing LAN before adding a camera."
 
     def state(self):
         with self.lock, closing(sqlite3.connect(self.database)) as db:
             db.row_factory = sqlite3.Row
             cameras = [dict(row) for row in db.execute("SELECT * FROM camera_inventory ORDER BY device_id")]
-            return dict(cameras=cameras, log=list(self.log), prompt=self.prompt, running=self.running)
+            return dict(cameras=cameras, log=list(self.log), prompt=self.prompt, running=self.running,
+                        probing=self.probing, discovered=list(self.discovered), probe_status=self.probe_status)
+
+    def discover_cameras(self):
+        with self.lock:
+            if self.running or self.probing:
+                raise ValueError("Wait for the current operation to finish.")
+            self.probing = True
+            self.discovered = []
+            self.probe_status = f"Probing factory cameras from {SOURCE_IP}..."
+        threading.Thread(target=self.collect_discovery, daemon=True).start()
+
+    def collect_discovery(self):
+        try:
+            cameras = discover(local_ip=SOURCE_IP, timeout=5)
+            observations = {}
+            for camera in cameras:
+                if camera.get("factory_flag") != 0:
+                    continue
+                observation = dict(camera)
+                raw_qr = observation.get("serial")
+                import re
+                match = re.fullmatch(r"TP1([0-9A-F]{17})020", (raw_qr or "").upper())
+                observation["device_id"] = match[1] if match else None
+                observation["qr_code_raw"] = raw_qr
+                observation["serial"] = None
+                observation["serial_note"] = "Label serial is not established by this discovery field."
+                observations[json.dumps(observation, sort_keys=True)] = observation
+            with self.lock:
+                self.discovered = list(observations.values())
+                self.probe_status = f"Found {len(self.discovered)} distinct factory-state camera observations."
+        except Exception as exc:
+            with self.lock:
+                self.probe_status = f"Discovery failed ({type(exc).__name__}). Check the camera-facing interface."
+        finally:
+            with self.lock:
+                self.probing = False
 
     def start(self, device_id):
         with self.lock, closing(sqlite3.connect(self.database)) as db, db:
-            if self.running:
-                raise ValueError("A provisioning run is already active.")
+            if self.running or self.probing:
+                raise ValueError("Wait for discovery or provisioning to finish.")
             row = db.execute("SELECT model FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
             if row is None or row[0] != "VIGI C320I":
                 raise ValueError("Select a VIGI C320I inventory record for this test engine.")
@@ -307,6 +356,8 @@ def main():
                         )
                         if result.rowcount != 1:
                             raise ValueError("Camera record not found.")
+                elif self.path == "/api/discover":
+                    app.discover_cameras()
                 elif self.path == "/api/delete":
                     app.delete_camera(data["device_id"])
                 elif self.path == "/api/start":
