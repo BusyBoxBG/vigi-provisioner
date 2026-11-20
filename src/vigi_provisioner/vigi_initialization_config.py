@@ -35,6 +35,7 @@ class VigiInitializationConfig:
     platform_access: bool | None = None
     osd: bool = False
     audio: dict | None = None
+    motion_detection: dict | None = None
 
     def timezone_request(self):
         return {
@@ -85,7 +86,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio", "motion_detection"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -130,9 +131,10 @@ def load_provisioning_profile(path):
             raise ValueError("OSD must use the verified date-only layout from provisioning.example.toml.")
         osd = True
     audio = load_audio_profile(document["audio"]) if "audio" in document else None
+    motion = load_motion_profile(document["motion_detection"]) if "motion_detection" in document else None
     return VigiInitializationConfig(
         email=email, clock=clock, dns=dns, video=video,
-        platform_access=platform_access, osd=osd, audio=audio, **values,
+        platform_access=platform_access, osd=osd, audio=audio, motion_detection=motion, **values,
     )
 
 
@@ -223,4 +225,45 @@ def load_audio_profile(audio):
         "noise_cancelling": "on" if audio["noise_cancelling"] else "off",
         "input_device_type": audio["input_device_type"],
         "sampling_rate": audio["sampling_rate"], "volume": str(audio["volume"]),
+    }
+
+def load_motion_profile(motion):
+    expected = {
+        "enabled": True, "sensitivity": 85, "object_filter": False,
+        "people": True, "vehicles": True, "target_validity": "medium",
+        "schedule": "24/7", "record": True, "snapshots": True,
+        "push_messages": False, "report_server": False, "email": False,
+        "ftp": False, "light_alarm": False, "sound_alarm": False,
+        "alarm_output_1": False,
+    }
+    if not isinstance(motion, dict) or set(motion) != set(expected):
+        raise ValueError("Expected all motion_detection fields from provisioning.example.toml.")
+    if any(type(motion[key]) is not type(value) for key, value in expected.items()):
+        raise ValueError("Motion profile has invalid value types.")
+    if not 0 <= motion["sensitivity"] <= 100:
+        raise ValueError("Motion sensitivity must be between 0 and 100.")
+    if motion["schedule"] != "24/7" or motion["target_validity"] != "medium":
+        raise ValueError("The verified motion profile uses 24/7 and medium target validity.")
+    def flag(field):
+        return "on" if motion[field] else "off"
+    return {
+        "motion_det": {
+            "target_validity": motion["target_validity"],
+            "people_enabled": flag("people"), "vehicle_enabled": flag("vehicles"),
+            "enabled": flag("enabled"), "digital_sensitivity": str(motion["sensitivity"]),
+            "obj_filter_enabled": flag("object_filter"),
+            "min_target_width": 0, "max_target_width": 10000,
+            "min_target_height": 0, "max_target_height": 10000,
+        },
+        "motion_notif_list": {
+            "light_alarm_enabled": flag("light_alarm"), "msg_push_enabled": flag("push_messages"),
+            "record_enabled": flag("record"), "sound_alarm_enabled": flag("sound_alarm"),
+            "AO1_enabled": flag("alarm_output_1"), "capture_enabled": flag("snapshots"),
+            "email_enabled": flag("email"), "ftp_enabled": flag("ftp"),
+            "report_server_enabled": flag("report_server"),
+        },
+        "arming_schedule": {
+            day: "%5B%220000-2400%22%5D" for day in
+            ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+        },
     }

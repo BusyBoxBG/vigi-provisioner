@@ -69,3 +69,21 @@ codec = "G711alaw"
 sampling_rate = 8
 channels = 1
 input_device_type = "MicIn"
+
+[motion_detection]
+enabled = true
+sensitivity = 85
+object_filter = false
+people = true
+vehicles = true
+target_validity = "medium"
+schedule = "24/7"
+record = true
+snapshots = true
+push_messages = false
+report_server = false
+email = false
+ftp = false
+light_alarm = false
+sound_alarm = false
+alarm_output_1 = false

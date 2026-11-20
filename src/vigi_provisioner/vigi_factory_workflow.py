@@ -258,6 +258,55 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def configure_motion_detection(camera, path, target):
+    def read():
+        _, result = camera.post(
+            "Read motion detection",
+            {"method": "get", "motion_detection": {
+                "name": ["motion_det", "motion_notif_list", "feature"],
+                "table": ["md_polygon_region_info"], "version": "1",
+            }}, path=path,
+        )
+        _, schedule = camera.post(
+            "Read motion schedule",
+            {"method": "get", "motion_detection": {"name": "arming_schedule"}}, path=path,
+        )
+        try:
+            motion = result["motion_detection"]
+            region = motion["md_polygon_region_info"]
+            expected_region = [{"md_polygon_region_info_1": {
+                "points_num": 4, "points_x": [0, 10000, 10000, 0],
+                "points_y": [0, 0, 10000, 10000],
+            }}]
+            if region != expected_region:
+                raise ProvisioningError("Motion region differs from the verified full-image layout.")
+            return motion | {"arming_schedule": schedule["motion_detection"]["arming_schedule"]}
+        except (KeyError, TypeError):
+            raise ProvisioningError("Unexpected motion detection readback.") from None
+
+    def matches(actual):
+        if not settings_match(actual, {key: target[key] for key in ("motion_det", "motion_notif_list")}):
+            return False
+        try:
+            return all(
+                json.loads(unquote(actual["arming_schedule"][day])) == ["0000-2400"]
+                for day in target["arming_schedule"]
+            )
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    actual = read()
+    if not matches(actual):
+        camera.post(
+            "Write motion detection",
+            {"method": "set", "motion_detection": target}, path=path,
+        )
+        actual = read()
+    if not matches(actual):
+        raise ProvisioningError("Motion configuration or arming schedule readback differs.")
+    print("Verified motion detection and 24/7 schedule; full-image region confirmed.")
+
+
 def configure_audio(camera, path, target):
     def read():
         _, result = camera.post(
@@ -616,6 +665,8 @@ def provision(args):
             configure_osd(camera, path, alias)
         if config.audio is not None:
             configure_audio(camera, path, config.audio)
+        if config.motion_detection is not None:
+            configure_motion_detection(camera, path, config.motion_detection)
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(

@@ -93,3 +93,9 @@ The OSD coordinates are camera values captured from the web UI, rather than pixe
 ### Microphone profile
 
 The optional [audio] table sets microphone mute on, noise cancellation off and volume 75, using G711alaw, sampling rate 8, one channel and MicIn. The workflow writes audio_config.microphone and verifies the returned fields before the network move. Numeric fields may be strings in the camera readback. Bitrate 64 and echo cancellation off were observed but are omitted from the write, matching the browser payload. This profile does not configure audio recording. The browser write/readback passed on hardware; the integrated profile awaits its first live run.
+
+### Basic event motion detection
+
+The optional [motion_detection] table enables sensitivity 85, object filtering off, people and vehicle flags on, medium target validity and 24/7 arming. Recording and snapshots are on; push messages, server reporting, email, FTP, light/sound alarms and AO1 are off. Target tracking is omitted from the write, matching the observed browser payload; its existing flag was on in the test readback.
+
+The workflow uses separate configuration and schedule reads, normalizes numeric strings and URL-decoded daily schedules, and verifies the full-image polygon before changing settings. It stops if a different region is observed because polygon writes have not been tested. The browser writes and all seven schedule readbacks passed on the test camera. The integrated profile still needs a live run.
