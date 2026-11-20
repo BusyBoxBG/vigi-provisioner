@@ -220,7 +220,7 @@ The browser writes and reloads verified the audio, motion and login-error values
 
 ## Test GUI
 
-Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a camera, follow the live step log and answer provisioning prompts. It runs on the Ubuntu host with the same TOML profile and SQLite inventory.
+Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a camera, follow the live step log and answer provisioning prompts. It runs on the Ubuntu host with the same TOML profile and SQLite inventory. The Connected factory default cameras panel provides a read-only discovery probe and shows all currently decoded factory-state details. Confirmation inputs appear above the step log. Inventory rows support serial editing and confirmed deletion.
 
 ## Protocol and source documentation
 

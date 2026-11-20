@@ -825,4 +825,4 @@ Uses synthetic keys to check RSA key sizes, invalid key input and long-password 
 
 ### vigi_test_gui.py
 
-Local HTTP server with a configurable bind address, inventory form, serial editor and live provisioning console. A child worker runs the factory workflow and exchanges prompt responses over pipes. Adds inventory metadata columns, merges discovery and authenticated ONVIF information, and records run status. [Source](../src/vigi_provisioner/vigi_test_gui.py)
+Local HTTP server with a configurable bind address, inventory form, serial editor, confirmed deletion, read-only factory camera discovery and live provisioning console. A child worker runs the factory workflow and exchanges prompt responses over pipes. Adds inventory metadata columns, merges discovery and authenticated ONVIF information, and records run status. [Source](../src/vigi_provisioner/vigi_test_gui.py)
