@@ -258,6 +258,29 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def configure_audio(camera, path, target):
+    def read():
+        _, result = camera.post(
+            "Read microphone",
+            {"method": "get", "audio_config": {"name": ["microphone"]}}, path=path,
+        )
+        microphone = result.get("audio_config", {}).get("microphone")
+        if not isinstance(microphone, dict):
+            raise ProvisioningError("Missing microphone readback.")
+        return microphone
+
+    actual = read()
+    if any(str(actual.get(key)) != str(value) for key, value in target.items()):
+        camera.post(
+            "Write microphone",
+            {"method": "set", "audio_config": {"microphone": dict(target)}}, path=path,
+        )
+        actual = read()
+    if any(str(actual.get(key)) != str(value) for key, value in target.items()):
+        raise ProvisioningError("Microphone readback differs from the audio profile.")
+    print(f"Verified microphone: mute {target['mute']}, noise cancellation {target['noise_cancelling']}, volume {target['volume']}.")
+
+
 def configure_osd(camera, path, serial):
     def read():
         _, result = camera.post(
@@ -591,6 +614,8 @@ def provision(args):
             configure_platform_access(camera, path, config.platform_access)
         if config.osd:
             configure_osd(camera, path, alias)
+        if config.audio is not None:
+            configure_audio(camera, path, config.audio)
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(

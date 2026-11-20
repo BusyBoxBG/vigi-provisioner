@@ -60,3 +60,12 @@ date_y = 0
 weekday_enabled = false
 labels_enabled = false
 label_1_text = "inventory_serial"
+
+[audio]
+muted = true
+noise_cancelling = false
+volume = 75
+codec = "G711alaw"
+sampling_rate = 8
+channels = 1
+input_device_type = "MicIn"

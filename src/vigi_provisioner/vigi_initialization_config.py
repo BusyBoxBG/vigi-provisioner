@@ -34,6 +34,7 @@ class VigiInitializationConfig:
     video: dict | None = None
     platform_access: bool | None = None
     osd: bool = False
+    audio: dict | None = None
 
     def timezone_request(self):
         return {
@@ -84,7 +85,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -128,9 +129,10 @@ def load_provisioning_profile(path):
         ):
             raise ValueError("OSD must use the verified date-only layout from provisioning.example.toml.")
         osd = True
+    audio = load_audio_profile(document["audio"]) if "audio" in document else None
     return VigiInitializationConfig(
         email=email, clock=clock, dns=dns, video=video,
-        platform_access=platform_access, osd=osd, **values,
+        platform_access=platform_access, osd=osd, audio=audio, **values,
     )
 
 
@@ -198,3 +200,27 @@ def load_clock_profile(clock):
         ntp=dict(ntp, server=str(server)),
         dst_manual={"enabled": "on", **{field: str(value) for field, value in dst.items()}},
     )
+
+
+
+def load_audio_profile(audio):
+    expected = {
+        "muted": True, "noise_cancelling": False, "volume": 75,
+        "codec": "G711alaw", "sampling_rate": 8, "channels": 1,
+        "input_device_type": "MicIn",
+    }
+    if not isinstance(audio, dict) or set(audio) != set(expected):
+        raise ValueError("Expected all audio fields from provisioning.example.toml.")
+    if any(type(audio[key]) is not type(value) for key, value in expected.items()):
+        raise ValueError("Audio profile has invalid value types.")
+    if not 0 <= audio["volume"] <= 100:
+        raise ValueError("Audio volume must be between 0 and 100.")
+    if any(audio[key] != expected[key] for key in ("codec", "sampling_rate", "channels", "input_device_type")):
+        raise ValueError("Use the verified G711alaw, sampling rate 8, mono MicIn profile.")
+    return {
+        "channels": audio["channels"], "encode_type": audio["codec"],
+        "mute": "on" if audio["muted"] else "off",
+        "noise_cancelling": "on" if audio["noise_cancelling"] else "off",
+        "input_device_type": audio["input_device_type"],
+        "sampling_rate": audio["sampling_rate"], "volume": str(audio["volume"]),
+    }
