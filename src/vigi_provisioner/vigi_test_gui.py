@@ -28,7 +28,7 @@ button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:1
 pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:18px;min-height:260px;max-height:450px}
 #prompt{background:#edf8f4;padding:16px}small{color:#536b78}@media(max-width:800px){.grid{display:block}}
 </style></head><body><header><h1>VIGI Provisioner</h1>Inventory and factory setup &middot; Ubuntu test console</header>
-<main><section><h2>Connected factory cameras</h2>
+<main><section><h2>Connected factory default cameras</h2>
 <button id="probe" onclick="probe()">Discover uninitialized cameras</button>
 <p id="probeStatus" role="status"></p><pre id="probeDetails" hidden></pre>
 </section><div class="grid"><section><h2>Add camera</h2><form id="add">
@@ -42,8 +42,9 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <button>Save inventory</button></form><p><small>The current provisioning engine supports the tested C320I lab addresses. Other models can be recorded for future testing.</small></p></section>
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <button id="start" onclick="start()">Start provisioning</button><p id="message" role="status"></p></section>
-<section><h2>Provisioning steps</h2><pre id="log"></pre><div id="prompt" hidden>
-<label id="question"></label><input id="answer" autocomplete="off"><button onclick="answer()">Confirm / Continue</button></div></section></div></div></main>
+<section><div id="prompt" hidden>
+<label id="question"></label><input id="answer" autocomplete="off"><button onclick="answer()">Confirm / Continue</button></div>
+<h2>Provisioning steps</h2><pre id="log"></pre></section></div></div></main>
 <script>
 const token="__TOKEN__";let pending=null;
 async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",headers:{"Content-Type":"application/json","X-GUI-Token":token},body:data?JSON.stringify(data):undefined});let j=await r.json();if(!r.ok)throw Error(j.error);return j}
