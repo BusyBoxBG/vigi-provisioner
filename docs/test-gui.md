@@ -26,3 +26,5 @@ New inventory records show `unverified` until a provisioning run checks the came
 The shared profile includes video and Platform Access settings. The full factory-reset GUI cycle confirmed the intended main-stream configuration and disabled Platform Access. Existing inventory statuses are preserved, and new records start unverified.
 
 With [osd] enabled in the site profile, the selected inventory row must contain a label serial. Use Edit serial before starting provisioning if needed. The workflow stores that serial in OSD label 1 while leaving its overlay disabled, shows only the date at the saved upper-right position, and checks readback before the network move.
+
+The same site profile can enable microphone, motion detection and login-error exception provisioning. Copy their tables from provisioning.example.toml to the local provisioning.toml before restarting the GUI. The step log reports each read, required write and verification. A missing table skips that optional stage. Newly added profile stages have browser write/readback evidence and offline simulation coverage; their integrated live run remains pending.

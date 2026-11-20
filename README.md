@@ -127,6 +127,40 @@ date_y = 0
 weekday_enabled = false
 labels_enabled = false
 label_1_text = "inventory_serial"
+
+# Microphone settings; audio recording is configured separately.
+[audio]
+muted = true
+noise_cancelling = false
+volume = 75
+codec = "G711alaw"
+sampling_rate = 8
+channels = 1
+input_device_type = "MicIn"
+
+# Full-image motion region is checked; daily arming is 24/7.
+[motion_detection]
+enabled = true
+sensitivity = 85
+object_filter = false
+people = true
+vehicles = true
+target_validity = "medium"
+schedule = "24/7"
+record = true
+snapshots = true
+push_messages = false
+report_server = false
+email = false
+ftp = false
+light_alarm = false
+sound_alarm = false
+alarm_output_1 = false
+
+# Disable the login-error exception; this is not a tested lockout control.
+[login_error]
+enabled = false
+max_num_err = 5
 ```
 
 Copy the optional clock and DNS tables into an existing local profile to enable them. The clock profile uses DD-MM-YYYY, 24-hour time, and manual DST with a 60-minute adjustment from the last Sunday in March at 03:00 to the last Sunday in October at 04:00.
@@ -173,6 +207,16 @@ Provisioning complete. Recovery email was submitted during activation.
 The recovery email was submitted during activation and was not independently read back. NTP readback verifies the saved configuration. Actual clock synchronization and DNS resolution were outside this test. The inventory remains read-only. If execution stops after activation or an ONVIF write, check the current camera state and address before attempting another run.
 
 The full factory-reset and reconfiguration cycle also confirmed Platform Access disabled. The test camera uses the inventory label serial as Device Name and the configured plain H265 video profile.
+
+## Additional shared profiles
+
+The optional audio profile mutes the microphone, disables noise cancellation and sets volume 75 with G711alaw, sampling rate 8 and one MicIn channel. Audio recording is a separate setting.
+
+Motion detection uses sensitivity 85, object filtering off and a full-image region, armed 24/7. Recording and snapshots are enabled; push messages, server reporting, email, FTP, light/sound alarms and AO1 are disabled. The workflow checks the existing full-image polygon and reads the schedule separately. Target tracking is omitted from the write, matching the captured browser request.
+
+The login-error exception profile sets enabled off and retains max_num_err 5. The effect of this exception setting on account lockout has not been tested.
+
+The browser writes and reloads verified the audio, motion and login-error values. Their integrated provisioning stages have passed offline simulations and await a full live provisioning cycle. The integrated OSD serial-label stage also awaits live verification.
 
 ## Test GUI
 

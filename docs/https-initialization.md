@@ -100,3 +100,15 @@ The workflow reads video.name ["main"], writes the requested fields under video.
 The case-sensitive OSD object is read with method get and OSD containing name ["font", "week", "date"] and table "label_info". The date-only layout was accepted and read back on the test camera with date enabled on at x_coor "7749", y_coor "0", week enabled off, and all three labels enabled off. Font settings are display ntnb, size auto, color_type adapt and color white.
 
 The response returns label_info as an array of objects keyed label_info_1 through label_info_3. Writes place those named objects directly under OSD. Label 1 text is URL-encoded from the inventory label serial. The workflow preserves the other label text and positions, then verifies the date coordinates, font, disabled states and decoded label 1 text. Updating the disabled label text is included in the integrated workflow and still awaits its first live test. The captured upper-right coordinate is a firmware value; the suspected normalized coordinate scale remains unconfirmed.
+
+## Audio, motion and exception profiles
+
+The optional audio table maps to audio_config.microphone. The verified write uses channels 1, encode_type G711alaw, mute on, noise_cancelling off, input_device_type MicIn, sampling_rate 8 and volume "75". The read request is method get with audio_config.name ["microphone"]. Numeric values may return as strings. Bitrate and echo cancellation are omitted from the write, matching the browser capture. Audio recording is a separate setting.
+
+The motion_detection table maps to motion_det, motion_notif_list and arming_schedule under motion_detection. The write uses digital_sensitivity "85", enabled on, object filtering off, people and vehicles on and medium target validity. Recording and snapshots are on. The captured push, server reporting, email, FTP, light/sound and AO1 actions are off. Other action flags are omitted from the write.
+
+Configuration readback requests motion_det, motion_notif_list and feature with table ["md_polygon_region_info"] and version "1". Schedule readback separately requests name "arming_schedule". Each daily URL-encoded JSON value must decode to ["0000-2400"]. The workflow confirms the existing full-image polygon before writing settings and stops if another region is present. Sensitivity 85 returned as digital_sensitivity 85 and sensitivity high. Target tracking remained on in the browser readback but was omitted from the captured write and the provisioning write.
+
+The login_error profile maps to unusual_detection.login_error with enabled off and numeric max_num_err 5. Readback uses unusual_detection.name ["login_error"] and may return max_num_err as a string. The captured push and light-alarm flags remained off. The profile does not establish the camera's account-lockout behavior.
+
+Browser write and readback passed for all three profiles. The integrated workflow applies and checks them before ONVIF changes the IP; a complete live run of these newly added stages remains pending.
