@@ -118,6 +118,15 @@ smart_codec = false
 # false maps to cloud_config.cloud_connect.enable = "off".
 [platform_access]
 enabled = false
+
+# Verified 1920x1080 layout. Label 1 text comes from the inventory serial.
+[osd]
+date_enabled = true
+date_x = 7749
+date_y = 0
+weekday_enabled = false
+labels_enabled = false
+label_1_text = "inventory_serial"
 ```
 
 Copy the optional clock and DNS tables into an existing local profile to enable them. The clock profile uses DD-MM-YYYY, 24-hour time, and manual DST with a 60-minute adjustment from the last Sunday in March at 03:00 to the last Sunday in October at 04:00.
@@ -139,7 +148,7 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
 
 1. Review the discovered Device ID, MAC, and approved assignment. The CLI shows the fresh certificate fingerprint. Type `APPROVE` only for the intended camera on the isolated LAN. This trusts the observed certificate for the run. Supply a separately verified `--pin` if required.
 2. Type `192.168.0.150` to confirm the target is unused and reserved, then enter the shared admin password twice.
-3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings. With video and Platform Access enabled in the site profile, it verifies the main stream and disables Platform Access before the ONVIF move.
+3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings. With video and Platform Access enabled in the site profile, it verifies the main stream and disables Platform Access before the ONVIF move. With the optional OSD table enabled, it places the date at the saved upper-right coordinates, disables weekday and text overlays, and stores the inventory label serial in label 1.
 4. ONVIF checks the current interface MAC and token, writes the gateway first, and sets static IPv4 and prefix with DHCP disabled. A fresh authenticated read at the new address verifies the assignment.
 5. With the DNS profile enabled, the CLI checks the HTTPS certificate at the new address. In the live test it had changed, so the operator approved the newly observed fingerprint before DNS login. When using a separately verified `--pin`, enter a newly verified fingerprint if it changes.
 6. The CLI writes only the two DNS fields over pinned HTTPS and waits for both saved and active WAN values to match the profile. It checks the approved IP, netmask, and gateway during readback.

@@ -94,3 +94,9 @@ Evidence is from the saved local Config Tool disassembly excerpts `vigi_init_dto
 The optional [video] profile sets the main stream to plain H265, 1920x1080, 15 fps, VBR High and maximum 2048 kbps. The camera fields are encode_type H265, resolution 1920*1080, frame_rate 65551, bitrate_type vbr, quality 5, bitrate 2048 and smart_codec off. ONVIF reported H265 while the UI showed H265+, so the HTTPS readback explicitly checks smart_codec.
 
 The workflow reads video.name ["main"], writes the requested fields under video.main, then verifies each field. The optional [platform_access] enabled=false maps to a set request under cloud_config.cloud_connect with enable off. The read request uses cloud_config.name ["cloud_connect"]; verification requires enable off. Both stages run before the ONVIF network move. The full factory-reset and reconfiguration cycle confirmed the intended video settings and disabled Platform Access.
+
+## OSD settings
+
+The case-sensitive OSD object is read with method get and OSD containing name ["font", "week", "date"] and table "label_info". The date-only layout was accepted and read back on the test camera with date enabled on at x_coor "7749", y_coor "0", week enabled off, and all three labels enabled off. Font settings are display ntnb, size auto, color_type adapt and color white.
+
+The response returns label_info as an array of objects keyed label_info_1 through label_info_3. Writes place those named objects directly under OSD. Label 1 text is URL-encoded from the inventory label serial. The workflow preserves the other label text and positions, then verifies the date coordinates, font, disabled states and decoded label 1 text. Updating the disabled label text is included in the integrated workflow and still awaits its first live test. The captured upper-right coordinate is a firmware value; the suspected normalized coordinate scale remains unconfirmed.
