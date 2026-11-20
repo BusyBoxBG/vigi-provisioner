@@ -87,3 +87,7 @@ ftp = false
 light_alarm = false
 sound_alarm = false
 alarm_output_1 = false
+
+[login_error]
+enabled = false
+max_num_err = 5

@@ -36,6 +36,7 @@ class VigiInitializationConfig:
     osd: bool = False
     audio: dict | None = None
     motion_detection: dict | None = None
+    login_error: dict | None = None
 
     def timezone_request(self):
         return {
@@ -86,7 +87,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio", "motion_detection"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio", "motion_detection", "login_error"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -132,9 +133,19 @@ def load_provisioning_profile(path):
         osd = True
     audio = load_audio_profile(document["audio"]) if "audio" in document else None
     motion = load_motion_profile(document["motion_detection"]) if "motion_detection" in document else None
+    login_error = None
+    if "login_error" in document:
+        section = document["login_error"]
+        if (
+            not isinstance(section, dict) or set(section) != {"enabled", "max_num_err"}
+            or type(section["enabled"]) is not bool or section["enabled"] is not False
+            or type(section["max_num_err"]) is not int or section["max_num_err"] != 5
+        ):
+            raise ValueError("The verified [login_error] profile requires enabled=false and max_num_err=5.")
+        login_error = {"enabled": "off", "max_num_err": 5}
     return VigiInitializationConfig(
         email=email, clock=clock, dns=dns, video=video,
-        platform_access=platform_access, osd=osd, audio=audio, motion_detection=motion, **values,
+        platform_access=platform_access, osd=osd, audio=audio, motion_detection=motion, login_error=login_error, **values,
     )
 
 

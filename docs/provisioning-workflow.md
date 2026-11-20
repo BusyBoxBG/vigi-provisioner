@@ -99,3 +99,7 @@ The optional [audio] table sets microphone mute on, noise cancellation off and v
 The optional [motion_detection] table enables sensitivity 85, object filtering off, people and vehicle flags on, medium target validity and 24/7 arming. Recording and snapshots are on; push messages, server reporting, email, FTP, light/sound alarms and AO1 are off. Target tracking is omitted from the write, matching the observed browser payload; its existing flag was on in the test readback.
 
 The workflow uses separate configuration and schedule reads, normalizes numeric strings and URL-decoded daily schedules, and verifies the full-image polygon before changing settings. It stops if a different region is observed because polygon writes have not been tested. The browser writes and all seven schedule readbacks passed on the test camera. The integrated profile still needs a live run.
+
+### Login-error exception
+
+The optional [login_error] table reproduces the verified disabled configuration with max_num_err=5. The workflow reads unusual_detection.login_error, sends enabled off and numeric max_num_err 5 if needed, and verifies readback before the network move. The camera returned max_num_err as a string. Push and light-alarm settings are omitted from the write; both were off in the observed readback. The browser write and reload confirmed enabled off. The precise effect of this exception setting on login lockout has not been tested. The integrated profile awaits its first live run.

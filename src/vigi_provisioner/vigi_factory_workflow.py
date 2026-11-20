@@ -258,6 +258,29 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def configure_login_error(camera, path, target):
+    def read():
+        _, result = camera.post(
+            "Read login-error exception",
+            {"method": "get", "unusual_detection": {"name": ["login_error"]}}, path=path,
+        )
+        observed = result.get("unusual_detection", {}).get("login_error")
+        if not isinstance(observed, dict):
+            raise ProvisioningError("Missing login-error exception readback.")
+        return observed
+
+    actual = read()
+    if any(str(actual.get(key)) != str(value) for key, value in target.items()):
+        camera.post(
+            "Write login-error exception",
+            {"method": "set", "unusual_detection": {"login_error": dict(target)}}, path=path,
+        )
+        actual = read()
+    if any(str(actual.get(key)) != str(value) for key, value in target.items()):
+        raise ProvisioningError("Login-error exception readback differs from the profile.")
+    print("Verified login-error exception: off, max_num_err 5.")
+
+
 def configure_motion_detection(camera, path, target):
     def read():
         _, result = camera.post(
@@ -667,6 +690,8 @@ def provision(args):
             configure_audio(camera, path, config.audio)
         if config.motion_detection is not None:
             configure_motion_detection(camera, path, config.motion_detection)
+        if config.login_error is not None:
+            configure_login_error(camera, path, config.login_error)
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(
