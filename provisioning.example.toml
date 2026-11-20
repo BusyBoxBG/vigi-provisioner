@@ -51,3 +51,12 @@ smart_codec = false
 # false maps to cloud_config.cloud_connect.enable = "off".
 [platform_access]
 enabled = false
+
+# Verified 1920x1080 layout. Label 1 text comes from the inventory serial.
+[osd]
+date_enabled = true
+date_x = 7749
+date_y = 0
+weekday_enabled = false
+labels_enabled = false
+label_1_text = "inventory_serial"

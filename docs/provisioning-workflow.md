@@ -83,3 +83,7 @@ Copy the optional [video] table from provisioning.example.toml into the site pro
 ### Platform Access
 
 The optional `[platform_access]` table has a boolean `enabled` setting. Set it to `false` to disable Platform Access. The workflow reads `cloud_config.cloud_connect.enable`, writes `off` if required, and verifies the result before the ONVIF network move. The browser write and subsequent readback returned code zero with `enable: off` on the test camera. The subsequent full factory-reset and reconfiguration cycle confirmed that Platform Access remained disabled.
+
+### OSD layout and inventory serial
+
+The optional [osd] table applies the tested date-only layout at x=7749, y=0 with automatic font size and adaptive white color. The weekday and three text labels are disabled. Label 1's stored text is the exact inventory label serial, even while its overlay is disabled. An inventory serial is required before activation when this section is present. The workflow preserves the other labels' coordinates and text and verifies all requested OSD fields after writing. The date-only layout passed browser write/readback on the test camera; the integrated serial-text write awaits a live test.

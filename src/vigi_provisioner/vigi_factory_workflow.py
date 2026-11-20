@@ -258,6 +258,61 @@ def configure_network(plan, password):
     print(f"Verified {INTERFACE}: {target}/{plan['prefix_length']}, DHCP disabled, gateway {plan['gateway']}.")
 
 
+def configure_osd(camera, path, serial):
+    def read():
+        _, result = camera.post(
+            "Read OSD",
+            {"method": "get", "OSD": {"name": ["font", "week", "date"], "table": "label_info"}},
+            path=path,
+        )
+        try:
+            osd = result["OSD"]
+            labels = {}
+            for row in osd["label_info"]:
+                for key, value in row.items():
+                    if key in labels:
+                        raise ValueError("Duplicate OSD label")
+                    labels[key] = value
+            if set(labels) != {"label_info_1", "label_info_2", "label_info_3"}:
+                raise ValueError("Unexpected labels")
+            return osd, labels
+        except (KeyError, TypeError, AttributeError, ValueError):
+            raise ProvisioningError("Unexpected OSD readback.") from None
+
+    def matches(osd, labels):
+        return (
+            settings_match(osd, {
+                "date": {"enabled": "on", "x_coor": "7749", "y_coor": "0"},
+                "week": {"enabled": "off"},
+                "font": {"display": "ntnb", "size": "auto", "color_type": "adapt", "color": "white"},
+            })
+            and all(label.get("enabled") == "off" for label in labels.values())
+            and unquote(labels["label_info_1"].get("text", "")) == serial
+        )
+
+    osd, labels = read()
+    if not matches(osd, labels):
+        payload = {
+            "date": {"enabled": "on", "x_coor": "7749", "y_coor": "0"},
+            "week": {"enabled": "off"},
+            "font": {"display": "ntnb", "size": "auto", "color_type": "adapt", "color": "white"},
+        }
+        for key, label in labels.items():
+            try:
+                payload[key] = {
+                    "enabled": "off", "x_coor": str(label["x_coor"]),
+                    "y_coor": str(label["y_coor"]), "text": label["text"],
+                }
+            except KeyError:
+                raise ProvisioningError("OSD label fields are missing.") from None
+        payload["label_info_1"]["text"] = quote(serial, safe="")
+        camera.post("Write OSD", {"method": "set", "OSD": payload}, path=path)
+        osd, labels = read()
+    if not matches(osd, labels):
+        raise ProvisioningError("OSD layout or inventory serial readback differs.")
+    print(f"Verified OSD: date upper right, weekday and labels off, label 1 text {serial}.")
+
+
 def configure_platform_access(camera, path, enabled):
     target = "on" if enabled else "off"
 
@@ -457,6 +512,8 @@ def provision(args):
     config = profile or VigiInitializationConfig(zone_id="Europe/Vilnius")
     print(f"Regional profile country: {config.country} (inventory intent).")
     alias = load_inventory_alias(args.inventory, args.device_id) if args.inventory else None
+    if config.osd and not alias:
+        raise ProvisioningError("OSD profile requires an inventory label serial before activation.")
     compact_mac = normalize_mac(args.mac)
     mac = "-".join(compact_mac[i:i + 2] for i in range(0, 12, 2))
     pin = normalize_sha256_pin(args.pin) if args.pin else None
@@ -532,6 +589,8 @@ def provision(args):
             configure_video(camera, path, config.video)
         if config.platform_access is not None:
             configure_platform_access(camera, path, config.platform_access)
+        if config.osd:
+            configure_osd(camera, path, alias)
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(

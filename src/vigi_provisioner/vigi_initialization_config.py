@@ -33,6 +33,7 @@ class VigiInitializationConfig:
     dns: tuple[str, str] | None = None
     video: dict | None = None
     platform_access: bool | None = None
+    osd: bool = False
 
     def timezone_request(self):
         return {
@@ -83,7 +84,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -113,9 +114,23 @@ def load_provisioning_profile(path):
         if not isinstance(section, dict) or set(section) != {"enabled"} or type(section["enabled"]) is not bool:
             raise ValueError("Expected a boolean enabled field in [platform_access].")
         platform_access = section["enabled"]
+    osd = False
+    if "osd" in document:
+        section = document["osd"]
+        expected = {
+            "date_enabled": True, "date_x": 7749, "date_y": 0,
+            "weekday_enabled": False, "labels_enabled": False,
+            "label_1_text": "inventory_serial",
+        }
+        if not isinstance(section, dict) or set(section) != set(expected) or any(
+            type(section[key]) is not type(value) or section[key] != value
+            for key, value in expected.items()
+        ):
+            raise ValueError("OSD must use the verified date-only layout from provisioning.example.toml.")
+        osd = True
     return VigiInitializationConfig(
         email=email, clock=clock, dns=dns, video=video,
-        platform_access=platform_access, **values,
+        platform_access=platform_access, osd=osd, **values,
     )
 
 
