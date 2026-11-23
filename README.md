@@ -238,3 +238,5 @@ Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a
 - [ONVIF network settings and readback](docs/onvif-network.md)
 - [Every Python file](docs/python-reference.md)
 - [Project layout](docs/project-layout.md)
+
+Automatic activation detection is shared by CLI and GUI. It recognizes the exact inspected legacy and modern web-resource signatures and stops before activation for unknown builds. See [activation compatibility](docs/https-initialization.md#automatic-activation-selection). To preserve stock firmware during CLI tests, pass `--skip-firmware`; for GUI tests disable firmware upgrading in the local TOML profile before restarting the service.

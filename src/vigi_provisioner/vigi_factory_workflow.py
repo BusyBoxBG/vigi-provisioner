@@ -92,6 +92,39 @@ def confirm_factory(camera):
         raise ProvisioningError("HTTPS did not confirm factory state.")
 
 
+# Exact resources inspected from factory-state HAR captures. Unknown builds stop.
+ACTIVATION_RESOURCES = (
+    ("/pc/Initial.htm", "170a83d3dc6bde88c886b5aab43b4a6a78f733a23ab3a6fc837c13341bb291e3", "legacy-2.0.4"),
+    ("/index.f129addb.js", "7d8169187aa8feb9fbb9a0aa77641e29c58989a92854db773688ca5617ffba33", "modern"),
+)
+
+
+def detect_activation_format(camera):
+    """Read known web resources over pinned HTTPS; never execute JavaScript."""
+    matches = set()
+    for path, expected_hash, activation_format in ACTIVATION_RESOURCES:
+        try:
+            camera.request("GET", path, headers={"Accept-Encoding": "identity"})
+            response = camera.getresponse()
+            raw = response.read(4_000_001)
+            if response.status == 200 and len(raw) <= 4_000_000:
+                if hashlib.sha256(raw).hexdigest() == expected_hash:
+                    matches.add(activation_format)
+        except Exception as exc:
+            raise ProvisioningError(
+                f"Activation detection request failed ({type(exc).__name__}). No activation sent."
+            ) from None
+        finally:
+            camera.close()
+    if len(matches) != 1:
+        raise ProvisioningError(
+            "Activation format is unknown or conflicting. No activation sent; inspect the factory web resources."
+        )
+    selected = matches.pop()
+    print(f"Detected activation format: {selected} (verified web-resource signature).", flush=True)
+    return selected
+
+
 def activation_payload(password, email, language, activation_format="modern"):
     if activation_format not in ("modern", "legacy-2.0.4"):
         raise ValueError("Unknown activation format")
@@ -620,7 +653,10 @@ def provision(args):
         else None
     )
     config = profile or VigiInitializationConfig(zone_id="Europe/Vilnius")
-    if config.firmware_file is not None:
+    skip_firmware = getattr(args, "skip_firmware", False)
+    if skip_firmware:
+        print("Firmware upgrade disabled for this run.", flush=True)
+    if config.firmware_file is not None and not skip_firmware:
         from .vigi_firmware_upgrade import inspect_firmware
         try:
             inspect_firmware(config.firmware_file)
@@ -681,6 +717,9 @@ def provision(args):
         pin = approve_observed_pin()
     camera = CameraHTTPS(pin)
     confirm_factory(camera)
+    activation_format = getattr(args, "activation_format", "auto")
+    if activation_format == "auto":
+        activation_format = detect_activation_format(camera)
 
     print(f"Camera {mac} at {CAMERA_IP} will move to {target}/{args.prefix}, gateway {gateway['gateway']}.")
     if input(f"Confirm {target} is unused and reserved for this camera by typing it: ").strip() != target:
@@ -689,7 +728,7 @@ def provision(args):
     password = getpass("New camera admin password: ")
     if not email or not password or password != getpass("Confirm new password: "):
         raise ProvisioningError("A recovery email and matching passwords are required.")
-    payload = activation_payload(password, email, config.language, getattr(args, "activation_format", "modern"))
+    payload = activation_payload(password, email, config.language, activation_format)
     confirm_factory(camera)
     try:
         camera.post("Factory activation", payload)
@@ -698,7 +737,7 @@ def provision(args):
 
     try:
         path = login(camera, password)
-        if config.firmware_file is not None:
+        if config.firmware_file is not None and not skip_firmware:
             from .vigi_firmware_upgrade import upgrade_after_activation
             try:
                 upgraded = upgrade_after_activation(
@@ -747,8 +786,10 @@ def provision(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--activation-format", choices=("modern", "legacy-2.0.4"), default="modern",
-                        help="Activation payload format; select legacy-2.0.4 for the older three-page wizard")
+    parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2.0.4"), default="auto",
+                        help="Default auto verifies a known factory web-resource signature before activation")
+    parser.add_argument("--skip-firmware", action="store_true",
+                        help="Skip firmware inspection and upgrade even when enabled in the profile")
     parser.add_argument("--config", help="Shared TOML profile (default: local provisioning.toml if present)")
     parser.add_argument("--inventory", help="Read-only SQLite inventory path")
     parser.add_argument("--device-id", help="Scanned C320I Device ID")
