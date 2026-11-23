@@ -18,4 +18,4 @@ The optional [firmware] profile contains enabled and file. Set enabled=true to c
 
 The stage reads authenticated identity and hardware through ONVIF 80 or 2020. It skips the target version and currently accepts only the tested 2.0.4 Build 241101 Rel.52842n source version on C320I hardware 1.20. In the GUI, a separate UPGRADE <Device ID> prompt precedes upload. After firmware readback matches, the workflow checks the HTTPS certificate again, obtains approval for a changed pin, and confirms a fresh login with the provisioned credentials before site configuration.
 
-The standalone upgrade is verified on hardware. The combined factory activation, upgrade, reboot, fresh login and site-configuration run is pending. The current provisioning engine remains C320I-specific even though the official target package is listed for C420I hardware 1.20 as well.
+The standalone upgrade and combined factory activation, upgrade, fresh login and complete site-configuration run are verified on hardware. The current provisioning engine remains C320I-specific even though the official target package is listed for C420I hardware 1.20 as well.

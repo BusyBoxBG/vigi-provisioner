@@ -99,7 +99,7 @@ The workflow reads video.name ["main"], writes the requested fields under video.
 
 The case-sensitive OSD object is read with method get and OSD containing name ["font", "week", "date"] and table "label_info". The date-only layout was accepted and read back on the test camera with date enabled on at x_coor "7749", y_coor "0", week enabled off, and all three labels enabled off. Font settings are display ntnb, size auto, color_type adapt and color white.
 
-The response returns label_info as an array of objects keyed label_info_1 through label_info_3. Writes place those named objects directly under OSD. Label 1 text is URL-encoded from the inventory label serial. The workflow preserves the other label text and positions, then verifies the date coordinates, font, disabled states and decoded label 1 text. Updating the disabled label text is included in the integrated workflow and still awaits its first live test. The captured upper-right coordinate is a firmware value; the suspected normalized coordinate scale remains unconfirmed.
+The response returns label_info as an array of objects keyed label_info_1 through label_info_3. Writes place those named objects directly under OSD. Label 1 text is URL-encoded from the inventory label serial. The workflow preserves the other label text and positions, then verifies the date coordinates, font, disabled states and decoded label 1 text. Updating the disabled label text passed integrated CLI and GUI hardware runs. The captured upper-right coordinate is a firmware value; the suspected normalized coordinate scale remains unconfirmed.
 
 ## Audio, motion and exception profiles
 
@@ -111,7 +111,7 @@ Configuration readback requests motion_det, motion_notif_list and feature with t
 
 The login_error profile maps to unusual_detection.login_error with enabled off and numeric max_num_err 5. Readback uses unusual_detection.name ["login_error"] and may return max_num_err as a string. The captured push and light-alarm flags remained off. The profile does not establish the camera's account-lockout behavior.
 
-Browser write and readback passed for all three profiles. The integrated workflow applies and checks them before ONVIF changes the IP; a complete live run of these newly added stages remains pending.
+Browser and integrated workflow write/readback passed for all three profiles, including the preserved-2.0.4 GUI run. The workflow applies and checks them before ONVIF changes the IP.
 
 ### Older firmware 2.0.4 activation
 
@@ -123,7 +123,7 @@ For a factory-reset older camera, explicitly pass `--activation-format legacy-2.
 
 CLI and GUI now default to `--activation-format auto`. After inventory matching, certificate approval and factory-state confirmation, the workflow downloads two known web resources with pinned HTTPS GET requests. It compares their full SHA-256 digests with the inspected factory-state HAR captures: `/pc/Initial.htm` for the legacy activation builder and `/index.f129addb.js` for the modern builder. Exactly one recognized signature is required. JavaScript is never executed. Missing, changed or conflicting signatures stop before activation; no alternate activation request is retried. This identifies the supported payload implementation, not a universal firmware-version rule. Other firmware builds require inspection and an additional reviewed signature.
 
-The automatic selector has been verified offline against both supplied HAR captures. Live automatic-selection testing is pending. Use `--skip-firmware` for repeat activation tests on stock cameras; this skips firmware-file inspection and upload even if the shared profile enables upgrades. GUI users can select **Keep existing firmware (no upgrade)** to override the profile for that run.
+The automatic selector has been verified offline against both supplied HAR captures. Legacy automatic selection passed complete CLI and GUI hardware runs; modern signature selection has offline HAR coverage and still needs a live automatic-selection test. Use `--skip-firmware` for repeat activation tests on stock cameras; this skips firmware-file inspection and upload even if the shared profile enables upgrades. GUI users can select **Keep existing firmware (no upgrade)** to override the profile for that run.
 
 ### Clock formats on stock legacy firmware
 
@@ -131,6 +131,6 @@ The preserved-stock camera confirms automatic legacy detection and activation. I
 
 ### Preserved legacy motion configuration
 
-Firmware 2.0.4 reads `motion_det` and `motion_notif_list` with table `polygon_region_info`, omitting the modern `feature` name and `version` field. The full-image polygon remains verified before and after writes; the workflow does not call `add_md_polygon_regions`. On the preserved legacy path only, absent `obj_filter_enabled` and `report_server_enabled` are explicitly reported as unavailable and omitted. Other requested fields still require matching readback. A targeted hardware write verified `capture_enabled` changing from off to on on 2.0.4. The combined legacy writer awaits full-cycle testing.
+Firmware 2.0.4 reads `motion_det` and `motion_notif_list` with table `polygon_region_info`, omitting the modern `feature` name and `version` field. The full-image polygon remains verified before and after writes; the workflow does not call `add_md_polygon_regions`. On the preserved legacy path only, absent `obj_filter_enabled` and `report_server_enabled` are explicitly reported as unavailable and omitted. Other requested fields still require matching readback. A targeted hardware write verified `capture_enabled` changing from off to on on 2.0.4. The combined legacy writer passed complete CLI and GUI provisioning cycles, including capture on, full-image region and the 24/7 schedule.
 
 The preserved legacy path now uses ONVIF port 2020 for identity checks, the IP/gateway writes, readback and GUI metadata. Modern/upgraded runs retain port 80. The live transport still restricts writes to the factory camera IP, the two allowed network operations, and source interface address. Firmware skipping remains explicit; broader models and unknown web builds are not automatically declared compatible.

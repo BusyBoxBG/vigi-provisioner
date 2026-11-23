@@ -97,6 +97,9 @@ max_num_err = 5
 
 # Optional firmware check after activation, before site settings.
 # Enable once the inspected file is present on the Ubuntu host.
+# GUI defaults to Keep existing firmware, which skips this stage even if enabled.
+# Select Allow firmware upgrade in the GUI to permit this configured stage.
+# CLI --skip-firmware also overrides this setting for preserved-stock testing.
 [firmware]
 enabled = false
 file = "/root/Cx20I_en_2.2.1_Build_260605_Rel.12620n_up_boot_signed.bin"

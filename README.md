@@ -214,7 +214,7 @@ The recovery email was submitted during activation and was not independently rea
 
 The full factory-reset and reconfiguration cycle also confirmed Platform Access disabled. The test camera uses the inventory label serial as Device Name and the configured plain H265 video profile.
 
-See [firmware upgrade](docs/firmware-upgrade.md) for the optional post-activation upgrade stage. The standalone 2.0.4-to-2.2.1 C320I upgrade passed on hardware; the combined factory run still needs testing.
+See [firmware upgrade](docs/firmware-upgrade.md) for the optional post-activation upgrade stage. Both the standalone upgrade and a complete factory activation, 2.0.4-to-2.2.1 upgrade and site-configuration run passed on the tested hardware.
 
 ## Additional shared profiles
 
@@ -224,7 +224,7 @@ Motion detection uses sensitivity 85, object filtering off and a full-image regi
 
 The login-error exception profile sets enabled off and retains max_num_err 5. The effect of this exception setting on account lockout has not been tested.
 
-The browser writes and reloads verified the audio, motion and login-error values. Their integrated provisioning stages have passed offline simulations and await a full live provisioning cycle. The integrated OSD serial-label stage also awaits live verification.
+Audio, motion, login-error and OSD serial-label configuration passed integrated hardware runs. The preserved-2.0.4 path was also verified through the GUI, with unavailable legacy fields explicitly reported.
 
 ## Test GUI
 
@@ -242,3 +242,15 @@ Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a
 Automatic activation detection is shared by CLI and GUI. It recognizes the exact inspected legacy and modern web-resource signatures and stops before activation for unknown builds. See [activation compatibility](docs/https-initialization.md#automatic-activation-selection). To preserve stock firmware during CLI tests, pass `--skip-firmware`; for GUI tests choose **Keep existing firmware (no upgrade)**.
 
 The GUI now offers **Keep existing firmware (no upgrade)** by default and an explicit option to allow profile-configured upgrades. Both modes share automatic activation detection. Preserved 2.0.4 provisioning on the tested C320I 1.20 completed with readback and visual verification, with unavailable settings reported in the log. See [GUI firmware handling](docs/test-gui.md#existing-firmware-and-automatic-compatibility).
+
+### Verified provisioning paths
+
+| Path on tested VIGI C320I hardware 1.20 | Result |
+| --- | --- |
+| Factory 2.0.4, activate, preserve firmware, apply supported settings through CLI | Passed readback and operator visual inspection |
+| Factory 2.0.4, automatic activation detection, preserve firmware through GUI | Passed complete provisioning and ONVIF inventory metadata collection |
+| Factory 2.0.4, activate, upgrade to 2.2.1, apply complete site profile | Passed firmware readback, configuration readback and operator inspection |
+
+The preserved-stock GUI camera reached `192.168.0.153/24`, gateway `192.168.0.1`, DHCP disabled, with saved and active DNS `84.54.128.100` and `8.8.8.8`. NTP, manual DST, serial device name and OSD text, H265 with smart codec off, audio, Platform Access, motion capture and 24/7 detection, and login-error exception settings passed readback. Its HTTPS certificate remained unchanged after the IP move in this run; other runs have required new certificate approval.
+
+Legacy `date_format` and `time_format` are unsupported. `obj_filter_enabled` and `report_server_enabled` are absent from the legacy motion schema and explicitly excluded. Country BG remains profile intent with empty camera readback; recovery email is submitted during activation without independent readback. These results apply to the tested model, hardware and firmware, not all VIGI cameras. Modern automatic signature selection still awaits a live test.
