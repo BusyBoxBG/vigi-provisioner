@@ -252,7 +252,7 @@ def worker(args):
 
     def configure_and_observe(plan, password):
         configure_network(plan, password)
-        endpoint = f"http://{plan['target_ip']}:80/onvif/device_service"
+        endpoint = f"http://{plan['target_ip']}:{plan.get('onvif_port', 80)}/onvif/device_service"
         try:
             info = get_device_information(endpoint, "admin", password)
             observations = {

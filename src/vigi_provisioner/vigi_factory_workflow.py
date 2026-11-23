@@ -291,13 +291,17 @@ def selected_interface(endpoint, password, mac):
 
 
 def configure_network(plan, password):
-    selected_interface(ENDPOINT, password, plan["mac"])
-    transport = make_live_transport(username=USERNAME, password=password)
+    port = plan.get("onvif_port", 80)
+    if type(port) is not int or port not in (80, 2020):
+        raise ProvisioningError("Unexpected ONVIF port.")
+    source_endpoint = f"http://{CAMERA_IP}:{port}/onvif/device_service"
+    selected_interface(source_endpoint, password, plan["mac"])
+    transport = make_live_transport(username=USERNAME, password=password, endpoint=source_endpoint)
     result = execute_with_transport(plan=plan, transport=transport)
     print(f"ONVIF writes: {result['status']}. Reboot needed: {result['reboot_needed']}.")
 
     target = plan["target_ip"]
-    endpoint = f"http://{target}:80/onvif/device_service"
+    endpoint = f"http://{target}:{port}/onvif/device_service"
     try:
         actual = selected_interface(endpoint, password, plan["mac"])
         gateways = get_network_default_gateway(endpoint, USERNAME, password)
@@ -340,14 +344,18 @@ def configure_login_error(camera, path, target):
     print("Verified login-error exception: off, max_num_err 5.")
 
 
-def configure_motion_detection(camera, path, target):
+def configure_motion_detection(camera, path, target, *, legacy=False):
+    target = {section: dict(fields) for section, fields in target.items()}
+    table = "polygon_region_info" if legacy else "md_polygon_region_info"
+    query = {"name": ["motion_det", "motion_notif_list"], "table": [table]}
+    if not legacy:
+        query["name"].append("feature")
+        query["version"] = "1"
+
     def read():
         _, result = camera.post(
             "Read motion detection",
-            {"method": "get", "motion_detection": {
-                "name": ["motion_det", "motion_notif_list", "feature"],
-                "table": ["md_polygon_region_info"], "version": "1",
-            }}, path=path,
+            {"method": "get", "motion_detection": query}, path=path,
         )
         _, schedule = camera.post(
             "Read motion schedule",
@@ -355,8 +363,8 @@ def configure_motion_detection(camera, path, target):
         )
         try:
             motion = result["motion_detection"]
-            region = motion["md_polygon_region_info"]
-            expected_region = [{"md_polygon_region_info_1": {
+            region = motion[table]
+            expected_region = [{f"{table}_1": {
                 "points_num": 4, "points_x": [0, 10000, 10000, 0],
                 "points_y": [0, 0, 10000, 10000],
             }}]
@@ -378,6 +386,12 @@ def configure_motion_detection(camera, path, target):
             return False
 
     actual = read()
+    if legacy:
+        for section, field in (("motion_det", "obj_filter_enabled"),
+                               ("motion_notif_list", "report_server_enabled")):
+            if field not in actual.get(section, {}):
+                target[section].pop(field, None)
+                print(f"Unavailable in legacy motion schema: {section}.{field}; omitted from writes and verification.", flush=True)
     if not matches(actual):
         camera.post(
             "Write motion detection",
@@ -768,11 +782,9 @@ def provision(args):
                 path = login(camera, password)
         if alias is not None:
             configure_device_alias(camera, path, alias)
-        configure_region(
-            camera, path, config,
-            legacy_clock=(activation_format == "legacy-2.0.4"
-                          and (skip_firmware or config.firmware_file is None)),
-        )
+        legacy_settings = (activation_format == "legacy-2.0.4"
+                           and (skip_firmware or config.firmware_file is None))
+        configure_region(camera, path, config, legacy_clock=legacy_settings)
         if config.video is not None:
             configure_video(camera, path, config.video)
         if config.platform_access is not None:
@@ -782,9 +794,10 @@ def provision(args):
         if config.audio is not None:
             configure_audio(camera, path, config.audio)
         if config.motion_detection is not None:
-            configure_motion_detection(camera, path, config.motion_detection)
+            configure_motion_detection(camera, path, config.motion_detection, legacy=legacy_settings)
         if config.login_error is not None:
             configure_login_error(camera, path, config.login_error)
+        plan["onvif_port"] = 2020 if legacy_settings else 80
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(

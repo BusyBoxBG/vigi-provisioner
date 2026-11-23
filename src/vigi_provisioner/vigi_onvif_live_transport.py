@@ -124,7 +124,7 @@ def make_live_transport(
             "Unexpected source IP"
         )
 
-    if endpoint != ENDPOINT:
+    if endpoint not in (ENDPOINT, "http://192.168.0.60:2020/onvif/device_service"):
         raise LiveONVIFTransportError(
             "Unexpected camera endpoint"
         )
@@ -160,7 +160,7 @@ def make_live_transport(
             )
 
             response = session.post(
-                ENDPOINT,
+                endpoint,
                 data=payload,
                 headers={
                     "Content-Type": (

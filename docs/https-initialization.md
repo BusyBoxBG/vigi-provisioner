@@ -128,3 +128,9 @@ The automatic selector has been verified offline against both supplied HAR captu
 ### Clock formats on stock legacy firmware
 
 The preserved-stock camera confirms automatic legacy detection and activation. Its legacy Date page has no date/time-format controls, and `system.basic` omits both `date_format` and `time_format`. For a detected or explicitly selected legacy activation flow that skips firmware upgrading, the workflow omits these two fields from the clock write and verification only when both are absent. It explicitly logs them as unsupported. NTP, manual DST and all remaining settings still require matching readback. Partial absence, present-but-wrong values, and missing fields on the modern/upgraded path remain errors. Upgrading first retains complete format verification on the newer firmware. A factory reset preserves stock firmware for repeated tests.
+
+### Preserved legacy motion configuration
+
+Firmware 2.0.4 reads `motion_det` and `motion_notif_list` with table `polygon_region_info`, omitting the modern `feature` name and `version` field. The full-image polygon remains verified before and after writes; the workflow does not call `add_md_polygon_regions`. On the preserved legacy path only, absent `obj_filter_enabled` and `report_server_enabled` are explicitly reported as unavailable and omitted. Other requested fields still require matching readback. A targeted hardware write verified `capture_enabled` changing from off to on on 2.0.4. The combined legacy writer awaits full-cycle testing.
+
+The preserved legacy path now uses ONVIF port 2020 for identity checks, the IP/gateway writes, readback and GUI metadata. Modern/upgraded runs retain port 80. The live transport still restricts writes to the factory camera IP, the two allowed network operations, and source interface address. Firmware skipping remains explicit; broader models and unknown web builds are not automatically declared compatible.
