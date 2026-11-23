@@ -161,6 +161,12 @@ alarm_output_1 = false
 [login_error]
 enabled = false
 max_num_err = 5
+
+# Optional firmware check after activation, before site settings.
+# Enable once the inspected file is present on the Ubuntu host.
+[firmware]
+enabled = false
+file = "/root/Cx20I_en_2.2.1_Build_260605_Rel.12620n_up_boot_signed.bin"
 ```
 
 Copy the optional clock and DNS tables into an existing local profile to enable them. The clock profile uses DD-MM-YYYY, 24-hour time, and manual DST with a 60-minute adjustment from the last Sunday in March at 03:00 to the last Sunday in October at 04:00.
@@ -182,7 +188,7 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_factory_workflow \
 
 1. Review the discovered Device ID, MAC, and approved assignment. The CLI shows the fresh certificate fingerprint. Type `APPROVE` only for the intended camera on the isolated LAN. This trusts the observed certificate for the run. Supply a separately verified `--pin` if required.
 2. Type `192.168.0.150` to confirm the target is unused and reserved, then enter the shared admin password twice.
-3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings. With video and Platform Access enabled in the site profile, it verifies the main stream and disables Platform Access before the ONVIF move. With the optional OSD table enabled, it places the date at the saved upper-right coordinates, disables weekday and text overlays, and stores the inventory label serial in label 1.
+3. The CLI confirms factory state over pinned HTTPS, submits account creation, and verifies the new password with a fresh login. When the inventory has a label serial, it writes and reads back the Device Name. When the optional firmware stage is enabled, it checks and upgrades firmware before applying site settings, then verifies the version and logs in again. It reads the time zone and frequency, applies the profile if needed, then verifies the resulting settings. With video and Platform Access enabled in the site profile, it verifies the main stream and disables Platform Access before the ONVIF move. With the optional OSD table enabled, it places the date at the saved upper-right coordinates, disables weekday and text overlays, and stores the inventory label serial in label 1.
 4. ONVIF checks the current interface MAC and token, writes the gateway first, and sets static IPv4 and prefix with DHCP disabled. A fresh authenticated read at the new address verifies the assignment.
 5. With the DNS profile enabled, the CLI checks the HTTPS certificate at the new address. In the live test it had changed, so the operator approved the newly observed fingerprint before DNS login. When using a separately verified `--pin`, enter a newly verified fingerprint if it changes.
 6. The CLI writes only the two DNS fields over pinned HTTPS and waits for both saved and active WAN values to match the profile. It checks the approved IP, netmask, and gateway during readback.
@@ -207,6 +213,8 @@ Provisioning complete. Recovery email was submitted during activation.
 The recovery email was submitted during activation and was not independently read back. NTP readback verifies the saved configuration. Actual clock synchronization and DNS resolution were outside this test. The inventory remains read-only. If execution stops after activation or an ONVIF write, check the current camera state and address before attempting another run.
 
 The full factory-reset and reconfiguration cycle also confirmed Platform Access disabled. The test camera uses the inventory label serial as Device Name and the configured plain H265 video profile.
+
+See [firmware upgrade](docs/firmware-upgrade.md) for the optional post-activation upgrade stage. The standalone 2.0.4-to-2.2.1 C320I upgrade passed on hardware; the combined factory run still needs testing.
 
 ## Additional shared profiles
 

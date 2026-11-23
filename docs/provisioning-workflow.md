@@ -103,3 +103,7 @@ The workflow uses separate configuration and schedule reads, normalizes numeric 
 ### Login-error exception
 
 The optional [login_error] table reproduces the verified disabled configuration with max_num_err=5. The workflow reads unusual_detection.login_error, sends enabled off and numeric max_num_err 5 if needed, and verifies readback before the network move. The camera returned max_num_err as a string. Push and light-alarm settings are omitted from the write; both were off in the observed readback. The browser write and reload confirmed enabled off. The precise effect of this exception setting on login lockout has not been tested. The integrated profile awaits its first live run.
+
+### Firmware stage before configuration
+
+Enable the optional [firmware] table to check and upgrade immediately after account activation and login. See [firmware upgrade](firmware-upgrade.md) for the inspected package and currently supported source version. The GUI asks for separate upload confirmation, verifies the target firmware through ONVIF after reboot, and completes certificate approval and fresh HTTPS login before applying the site settings. If the target version is already installed, it skips the upload. The combined factory workflow awaits its first upgrade-included hardware run.

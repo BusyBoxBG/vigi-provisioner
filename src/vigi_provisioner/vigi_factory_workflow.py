@@ -605,6 +605,12 @@ def provision(args):
         else None
     )
     config = profile or VigiInitializationConfig(zone_id="Europe/Vilnius")
+    if config.firmware_file is not None:
+        from .vigi_firmware_upgrade import inspect_firmware
+        try:
+            inspect_firmware(config.firmware_file)
+        except RuntimeError as exc:
+            raise ProvisioningError(str(exc)) from None
     print(f"Regional profile country: {config.country} (inventory intent).")
     alias = load_inventory_alias(args.inventory, args.device_id) if args.inventory else None
     if config.osd and not alias:
@@ -677,6 +683,24 @@ def provision(args):
 
     try:
         path = login(camera, password)
+        if config.firmware_file is not None:
+            from .vigi_firmware_upgrade import upgrade_after_activation
+            try:
+                upgraded = upgrade_after_activation(
+                    camera, path, password, mac, args.device_id or "camera",
+                    config.firmware_file, input,
+                )
+            except Exception as exc:
+                from .vigi_firmware_upgrade import ProvisioningError as FirmwareError
+                if isinstance(exc, FirmwareError):
+                    raise ProvisioningError(str(exc)) from None
+                raise
+            if upgraded:
+                pin = pin_after_network_move(
+                    CAMERA_IP, pin, independently_verified=args.pin is not None
+                )
+                camera = CameraHTTPS(pin)
+                path = login(camera, password)
         if alias is not None:
             configure_device_alias(camera, path, alias)
         configure_region(camera, path, config)

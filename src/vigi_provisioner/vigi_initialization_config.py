@@ -37,6 +37,7 @@ class VigiInitializationConfig:
     audio: dict | None = None
     motion_detection: dict | None = None
     login_error: dict | None = None
+    firmware_file: str | None = None
 
     def timezone_request(self):
         return {
@@ -87,7 +88,7 @@ def load_provisioning_profile(path):
         "time_zone", "zone_id", "power_line_frequency",
     }
     defaults = document.get("camera_defaults")
-    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio", "motion_detection", "login_error"} or not isinstance(defaults, dict):
+    if set(document) - {"camera_defaults", "clock", "dns", "video", "platform_access", "osd", "audio", "motion_detection", "login_error", "firmware"} or not isinstance(defaults, dict):
         raise ValueError("Expected [camera_defaults] and optional [clock] and [dns] tables.")
     if set(defaults) != fields:
         raise ValueError("Expected exactly the seven nonsecret fields from provisioning.example.toml.")
@@ -143,9 +144,20 @@ def load_provisioning_profile(path):
         ):
             raise ValueError("The verified [login_error] profile requires enabled=false and max_num_err=5.")
         login_error = {"enabled": "off", "max_num_err": 5}
+    firmware_file = None
+    if "firmware" in document:
+        firmware = document["firmware"]
+        if (
+            not isinstance(firmware, dict) or set(firmware) != {"enabled", "file"}
+            or type(firmware["enabled"]) is not bool
+            or not isinstance(firmware["file"], str) or not firmware["file"].strip()
+        ):
+            raise ValueError("Expected enabled boolean and file path in [firmware].")
+        if firmware["enabled"]:
+            firmware_file = str((Path(path).resolve().parent / firmware["file"]).resolve())
     return VigiInitializationConfig(
         email=email, clock=clock, dns=dns, video=video,
-        platform_access=platform_access, osd=osd, audio=audio, motion_detection=motion, login_error=login_error, **values,
+        platform_access=platform_access, osd=osd, audio=audio, motion_detection=motion, login_error=login_error, firmware_file=firmware_file, **values,
     )
 
 

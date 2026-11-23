@@ -24,10 +24,10 @@ SHA256 = "151087aabf05b5b0f052c4d5bcb18fdacd8b8aaca085c3b80d0d7ddd612932a8"
 VERSION = "2.2.1 Build 260605 Rel.12620n"
 
 
-def check_identity(password, port):
+def check_identity(password, port, expected_mac=MAC):
     endpoint = f"http://{CAMERA}:{port}/onvif/device_service"
     interfaces = get_network_interfaces(endpoint, "admin", password)
-    if not any(normalize_mac(item.get("mac", "")) == MAC for item in interfaces):
+    if not any(normalize_mac(item.get("mac", "")) == normalize_mac(expected_mac) for item in interfaces):
         raise ProvisioningError("ONVIF MAC differs from the upgrade test camera.")
     info = get_device_information(endpoint, "admin", password)
     if info.get("Model") != "VIGI C320I" or info.get("HardwareId") not in {"1.2", "1.20"}:
@@ -53,6 +53,47 @@ def upload_uri(result):
     if not re.fullmatch(r"/[A-Za-z0-9_./?=&%+-]+", value) or ".." in value or value.startswith("//"):
         raise ProvisioningError("Unexpected upload URL. No file uploaded.")
     return value
+
+
+def inspect_firmware(file):
+    file = Path(file)
+    if file.name != "Cx20I_en_2.2.1_Build_260605_Rel.12620n_up_boot_signed.bin":
+        raise ProvisioningError("Select the inspected Cx20I firmware filename.")
+    image = file.read_bytes()
+    if hashlib.sha256(image).hexdigest() != SHA256:
+        raise ProvisioningError("Firmware checksum differs from the inspected file.")
+    return image
+
+
+def upgrade_after_activation(camera, path, password, expected_mac, device_id, file, confirm):
+    before = None
+    for port in (80, 2020):
+        try:
+            before = check_identity(password, port, expected_mac)
+            break
+        except requests.RequestException:
+            continue
+    if before is None:
+        raise ProvisioningError("Unable to read camera firmware on ONVIF 80 or 2020.")
+    current = before.get("FirmwareVersion")
+    print(f"Firmware check: current {current}; target {VERSION}.", flush=True)
+    if current == VERSION:
+        print("Target firmware already installed. Upgrade skipped.", flush=True)
+        return False
+    if current != "2.0.4 Build 241101 Rel.52842n":
+        raise ProvisioningError("This upgrade path currently supports the tested 2.0.4 source version.")
+    image = inspect_firmware(file)
+    expected = f"UPGRADE {device_id}"
+    if confirm(f"Type {expected} to install firmware before site configuration: ").strip() != expected:
+        raise ProvisioningError("Upgrade cancelled before upload.")
+    print("Starting firmware upgrade. Keep power and Ethernet connected.", flush=True)
+    _, result = camera.post(
+        "Request firmware upload URL",
+        {"method": "do", "system": {"firmware_upgrade": {"type": "0"}}}, path=path,
+    )
+    upload_file(camera, path, upload_uri(result), image, Path(file).name)
+    wait_for_upgrade(password, expected_mac)
+    return True
 
 
 def run(args):
@@ -103,9 +144,14 @@ def run(args):
     if args.prepare_only:
         print("Upload preparation passed. No file uploaded.")
         return
+    upload_file(camera, path, uri, image, file.name)
+    wait_for_upgrade(password, MAC)
+
+
+def upload_file(camera, path, uri, image, filename):
     token_prefix = path.removesuffix("/ds")
     boundary = "VigiUpload" + secrets.token_hex(16)
-    body = multipart(image, file.name, boundary)
+    body = multipart(image, filename, boundary)
     try:
         camera.connect()
         camera.sock.settimeout(180)
@@ -113,7 +159,7 @@ def run(args):
             "POST", token_prefix + uri, body=body,
             headers={
                 "Content-Type": f"multipart/form-data; boundary={boundary}",
-                "Content-Disposition": f"attachment; filename={file.name}",
+                "Content-Disposition": f"attachment; filename={filename}",
             },
         )
         camera.sock.settimeout(180)
@@ -133,12 +179,15 @@ def run(args):
     finally:
         camera.close()
 
+
+
+def wait_for_upgrade(password, expected_mac):
     deadline = time.monotonic() + 600
     while time.monotonic() < deadline:
         time.sleep(10)
         for port in (2020, 80):
             try:
-                info = check_identity(password, port)
+                info = check_identity(password, port, expected_mac)
             except (requests.RequestException, ProvisioningError, ValueError):
                 continue
             version = info.get("FirmwareVersion")
