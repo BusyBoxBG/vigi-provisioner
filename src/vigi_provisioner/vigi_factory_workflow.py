@@ -231,7 +231,7 @@ def settings_match(system, expected):
     return True
 
 
-def configure_region(camera, path, config):
+def configure_region(camera, path, config, *, legacy_clock=False):
     target = (config.time_zone, config.zone_id, config.power_line_frequency)
     actual, language, country, system = read_regional_settings(camera, path)
     if actual != target:
@@ -244,6 +244,14 @@ def configure_region(camera, path, config):
     if config.clock is not None:
         settings_request = config.clock.settings_request(config)
         ntp_request = config.clock.ntp_request()
+        unsupported_formats = legacy_clock and all(
+            field not in system.get("basic", {})
+            for field in ("date_format", "time_format")
+        )
+        if unsupported_formats:
+            for field in ("date_format", "time_format"):
+                settings_request["system"]["basic"].pop(field, None)
+            print("Unsupported on legacy firmware: date_format and time_format; omitted from writes and verification.", flush=True)
         expected_clock = {
             "basic": {
                 field: value for field, value in settings_request["system"]["basic"].items()
@@ -260,7 +268,10 @@ def configure_region(camera, path, config):
         actual, language, country, system = read_regional_settings(camera, path)
         if not settings_match(system, expected_clock | expected_ntp):
             raise ProvisioningError("Date, DST or NTP readback differs from the requested settings.")
-        print("Verified date format, manual DST and custom NTP configuration.")
+        if unsupported_formats:
+            print("Verified manual DST and custom NTP; date/time formats unsupported.")
+        else:
+            print("Verified date format, manual DST and custom NTP configuration.")
     if actual != target or language != config.language:
         raise ProvisioningError("Regional readback differs from the requested settings.")
     print(f"Verified {config.language}, {config.time_zone}, {config.zone_id}, {config.power_line_frequency}.")
@@ -757,7 +768,11 @@ def provision(args):
                 path = login(camera, password)
         if alias is not None:
             configure_device_alias(camera, path, alias)
-        configure_region(camera, path, config)
+        configure_region(
+            camera, path, config,
+            legacy_clock=(activation_format == "legacy-2.0.4"
+                          and (skip_firmware or config.firmware_file is None)),
+        )
         if config.video is not None:
             configure_video(camera, path, config.video)
         if config.platform_access is not None:
