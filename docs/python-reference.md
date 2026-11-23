@@ -2,7 +2,7 @@
 
 For the role of each component in the live sequence, see [Provisioning workflow](provisioning-workflow.md#files-used-by-each-stage).
 
-All 104 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
+All 105 Python files in the packaged project are listed below. The linked source is the reference for function signatures and supported inputs.
 
 ## Package and verification
 
@@ -826,3 +826,7 @@ Uses synthetic keys to check RSA key sizes, invalid key input and long-password 
 ### vigi_test_gui.py
 
 Local HTTP server with a configurable bind address, inventory form, serial editor, confirmed deletion, read-only factory camera discovery and live provisioning console. A child worker runs the factory workflow and exchanges prompt responses over pipes. Adds inventory metadata columns, merges discovery and authenticated ONVIF information, and records run status. [Source](../src/vigi_provisioner/vigi_test_gui.py)
+
+### vigi_firmware_upgrade.py
+
+Experimental bench CLI for the identified older-firmware C320I. Checks the exact file checksum and camera identity, requests the local upgrade URL, uploads once through pinned HTTPS, then observes authenticated firmware readback on ONVIF 2020 and 80. [Source](../src/vigi_provisioner/vigi_firmware_upgrade.py)
