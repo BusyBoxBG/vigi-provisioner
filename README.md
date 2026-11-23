@@ -239,4 +239,6 @@ Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a
 - [Every Python file](docs/python-reference.md)
 - [Project layout](docs/project-layout.md)
 
-Automatic activation detection is shared by CLI and GUI. It recognizes the exact inspected legacy and modern web-resource signatures and stops before activation for unknown builds. See [activation compatibility](docs/https-initialization.md#automatic-activation-selection). To preserve stock firmware during CLI tests, pass `--skip-firmware`; for GUI tests disable firmware upgrading in the local TOML profile before restarting the service.
+Automatic activation detection is shared by CLI and GUI. It recognizes the exact inspected legacy and modern web-resource signatures and stops before activation for unknown builds. See [activation compatibility](docs/https-initialization.md#automatic-activation-selection). To preserve stock firmware during CLI tests, pass `--skip-firmware`; for GUI tests choose **Keep existing firmware (no upgrade)**.
+
+The GUI now offers **Keep existing firmware (no upgrade)** by default and an explicit option to allow profile-configured upgrades. Both modes share automatic activation detection. Preserved 2.0.4 provisioning on the tested C320I 1.20 completed with readback and visual verification, with unavailable settings reported in the log. See [GUI firmware handling](docs/test-gui.md#existing-firmware-and-automatic-compatibility).

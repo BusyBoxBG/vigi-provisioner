@@ -34,3 +34,9 @@ The Connected factory default cameras panel contains Discover uninitialized came
 Confirmation and password inputs appear above the Provisioning steps log. The current question identifies whether to approve a fingerprint, confirm the reserved IP, or enter credentials. Responses are submitted with Confirm / Continue.
 
 The optional firmware stage runs after activation. Its UPGRADE confirmation uses the same input above the log. Firmware upload and subsequent ONVIF version observations appear in the step log. A changed post-upgrade certificate requires approval before the workflow sends credentials again. Site settings follow fresh login.
+
+## Existing firmware and automatic compatibility
+
+The Firmware handling selector defaults to **Keep existing firmware (no upgrade)** for each page load. The server also defaults missing upgrade choices to false and validates the choice as a boolean. This passes `--skip-firmware` through the GUI worker to the common workflow, even when the site profile enables upgrades. Select **Allow firmware upgrade configured in provisioning.toml** to permit the configured upgrade stage; existing firmware identity, file verification and typed UPGRADE confirmation remain required. The selector cannot be changed during a run.
+
+Both choices use automatic activation-format detection. On the tested C320I hardware 1.20 with 2.0.4 preserved, the workflow uses legacy activation, the older motion table and ONVIF port 2020. Absent date/time-format fields and the two unavailable motion fields are reported explicitly in the log. Capture, the full-image region, 24/7 schedule, other supported settings, static addressing and saved/active DNS still require readback. The complete preserved-2.0.4 CLI cycle passed automated readback and operator visual inspection. The new GUI firmware selector awaits its first hardware run. This evidence does not establish compatibility with untested models or firmware builds.

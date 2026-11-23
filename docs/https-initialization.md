@@ -123,7 +123,7 @@ For a factory-reset older camera, explicitly pass `--activation-format legacy-2.
 
 CLI and GUI now default to `--activation-format auto`. After inventory matching, certificate approval and factory-state confirmation, the workflow downloads two known web resources with pinned HTTPS GET requests. It compares their full SHA-256 digests with the inspected factory-state HAR captures: `/pc/Initial.htm` for the legacy activation builder and `/index.f129addb.js` for the modern builder. Exactly one recognized signature is required. JavaScript is never executed. Missing, changed or conflicting signatures stop before activation; no alternate activation request is retried. This identifies the supported payload implementation, not a universal firmware-version rule. Other firmware builds require inspection and an additional reviewed signature.
 
-The automatic selector has been verified offline against both supplied HAR captures. Live automatic-selection testing is pending. Use `--skip-firmware` for repeat activation tests on stock cameras; this skips firmware-file inspection and upload even if the shared profile enables upgrades. GUI users must set `[firmware] enabled = false` in their local profile and restart the service before preserving-stock tests.
+The automatic selector has been verified offline against both supplied HAR captures. Live automatic-selection testing is pending. Use `--skip-firmware` for repeat activation tests on stock cameras; this skips firmware-file inspection and upload even if the shared profile enables upgrades. GUI users can select **Keep existing firmware (no upgrade)** to override the profile for that run.
 
 ### Clock formats on stock legacy firmware
 

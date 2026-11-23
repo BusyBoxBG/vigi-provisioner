@@ -41,6 +41,11 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label>Gateway</label><input name="gateway_ipv4" value="192.168.0.1" required>
 <button>Save inventory</button></form><p><small>The current provisioning engine supports the tested C320I lab addresses. Other models can be recorded for future testing.</small></p></section>
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
+<label for="firmwareMode">Firmware handling</label>
+<select id="firmwareMode" style="width:100%;padding:10px">
+<option value="preserve">Keep existing firmware (no upgrade)</option>
+<option value="profile">Allow firmware upgrade configured in provisioning.toml</option>
+</select><p><small>Activation format is detected automatically. Unsupported legacy settings are listed in the step log. Supported settings still require readback verification.</small></p>
 <button id="start" onclick="start()">Start provisioning</button><p id="message" role="status"></p></section>
 <section><div id="prompt" hidden>
 <label id="question"></label><input id="answer" autocomplete="off"><button onclick="answer()">Confirm / Continue</button></div>
@@ -49,7 +54,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 const token="__TOKEN__";let pending=null;
 async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",headers:{"Content-Type":"application/json","X-GUI-Token":token},body:data?JSON.stringify(data):undefined});let j=await r.json();if(!r.ok)throw Error(j.error);return j}
 function cell(row,text){let td=document.createElement("td");td.textContent=text;row.append(td)}
-async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;
+async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;document.getElementById("firmwareMode").disabled=s.running;
 let table=document.getElementById("rows");let selected=document.querySelector("input[name=selected]:checked")?.value;table.replaceChildren();
 for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"unverified");
 let actions=document.createElement("td"),remove=document.createElement("button");
@@ -67,7 +72,7 @@ pending=s.prompt;document.getElementById("prompt").hidden=!pending;if(pending){d
 }catch(e){document.getElementById("message").textContent=e.message}}
 document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";refresh()}catch(e){document.getElementById("message").textContent=e.message}};
 async function probe(){try{await api("/api/discover",{});refresh()}catch(e){document.getElementById("probeStatus").textContent=e.message}}
-async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
+async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id,allow_firmware_upgrade:document.getElementById("firmwareMode").value==="profile"});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function answer(){try{await api("/api/answer",{id:pending.id,value:document.getElementById("answer").value});document.getElementById("answer").value="";refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 refresh();setInterval(refresh,1000);
 </script></body></html>"""
@@ -165,7 +170,9 @@ class Application:
             with self.lock:
                 self.probing = False
 
-    def start(self, device_id):
+    def start(self, device_id, allow_firmware_upgrade=False):
+        if type(allow_firmware_upgrade) is not bool:
+            raise ValueError("Firmware upgrade choice must be true or false.")
         with self.lock, closing(sqlite3.connect(self.database)) as db, db:
             if self.running or self.probing:
                 raise ValueError("Wait for discovery or provisioning to finish.")
@@ -174,7 +181,8 @@ class Application:
                 raise ValueError("Select a VIGI C320I inventory record for this test engine.")
             self.process = subprocess.Popen(
                 [sys.executable, "-u", "-m", "vigi_provisioner.vigi_test_gui", "--worker",
-                 "--inventory", self.database, "--config", self.config, "--device-id", device_id],
+                 "--inventory", self.database, "--config", self.config, "--device-id", device_id]
+                + ([] if allow_firmware_upgrade else ["--skip-firmware"]),
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", bufsize=1,
             )
@@ -270,6 +278,8 @@ def worker(args):
 
     workflow.configure_network = configure_and_observe
     sys.argv = [sys.argv[0],"--inventory",args.inventory,"--config",args.config,"--device-id",args.device_id]
+    if args.skip_firmware:
+        sys.argv.append("--skip-firmware")
     workflow.main()
 
 
@@ -280,6 +290,7 @@ def main():
     parser.add_argument("--bind", default="127.0.0.1", help="Local IPv4 interface address to serve on")
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--worker",action="store_true",help=argparse.SUPPRESS)
+    parser.add_argument("--skip-firmware",action="store_true",help=argparse.SUPPRESS)
     parser.add_argument("--device-id",help=argparse.SUPPRESS)
     args = parser.parse_args()
     args.bind = str(ipaddress.IPv4Address(args.bind))
@@ -362,7 +373,7 @@ def main():
                 elif self.path == "/api/delete":
                     app.delete_camera(data["device_id"])
                 elif self.path == "/api/start":
-                    app.start(data["device_id"])
+                    app.start(data["device_id"], data.get("allow_firmware_upgrade", False))
                 elif self.path == "/api/answer":
                     app.answer(data)
                 else:
