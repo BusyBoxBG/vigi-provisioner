@@ -92,7 +92,22 @@ def confirm_factory(camera):
         raise ProvisioningError("HTTPS did not confirm factory state.")
 
 
-def activation_payload(password, email, language):
+def activation_payload(password, email, language, activation_format="modern"):
+    if activation_format not in ("modern", "legacy-2.0.4"):
+        raise ValueError("Unknown activation format")
+    if activation_format == "legacy-2.0.4":
+        # Captured from the 2.0.4 wizard: email is encoded, not RSA encrypted.
+        return {
+            "method": "do",
+            "set_password": {
+                "username": USERNAME,
+                "password": vigi_md5_password(password),
+                "passwdType": "md5",
+                "ciphertext": quote(encrypt_ipc_password(password), safe=""),
+                "reset_pwd_email": quote(email, safe=""),
+                "language": language,
+            },
+        }
     return {
         "method": "do",
         "set_password": {
@@ -674,7 +689,7 @@ def provision(args):
     password = getpass("New camera admin password: ")
     if not email or not password or password != getpass("Confirm new password: "):
         raise ProvisioningError("A recovery email and matching passwords are required.")
-    payload = activation_payload(password, email, config.language)
+    payload = activation_payload(password, email, config.language, getattr(args, "activation_format", "modern"))
     confirm_factory(camera)
     try:
         camera.post("Factory activation", payload)
@@ -732,6 +747,8 @@ def provision(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--activation-format", choices=("modern", "legacy-2.0.4"), default="modern",
+                        help="Activation payload format; select legacy-2.0.4 for the older three-page wizard")
     parser.add_argument("--config", help="Shared TOML profile (default: local provisioning.toml if present)")
     parser.add_argument("--inventory", help="Read-only SQLite inventory path")
     parser.add_argument("--device-id", help="Scanned C320I Device ID")

@@ -112,3 +112,9 @@ Configuration readback requests motion_det, motion_notif_list and feature with t
 The login_error profile maps to unusual_detection.login_error with enabled off and numeric max_num_err 5. Readback uses unusual_detection.name ["login_error"] and may return max_num_err as a string. The captured push and light-alarm flags remained off. The profile does not establish the camera's account-lockout behavior.
 
 Browser write and readback passed for all three profiles. The integrated workflow applies and checks them before ONVIF changes the IP; a complete live run of these newly added stages remains pending.
+
+### Older firmware 2.0.4 activation
+
+The three-page initialization wizard on firmware `2.0.4 Build 241101 Rel.52842n` sends no requests between its pages. Its final activation request includes `username`, `password` (the vendor uppercase MD5 digest), `passwdType: "md5"`, RSA `ciphertext`, URL-encoded `reset_pwd_email`, and `language`. It omits `pwd_sec_type` and the security-question fields. Manual activation with this payload returned `error_code: 0`. The modern workflow payload was rejected with `-50934`; the exact meaning of that code is not established.
+
+For a factory-reset older camera, explicitly pass `--activation-format legacy-2.0.4` to the factory workflow CLI. The default remains `modern`; there is no automatic retry or format detection. This compatibility implementation awaits a complete hardware test. Login already uses the returned `key` when `key_2` is absent and omits `keyType` in that case. Regional settings use the same payload as newer firmware and were acknowledged on 2.0.4. Do not store captured password digests, ciphertext or session tokens in the repository.
