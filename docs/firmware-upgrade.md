@@ -9,3 +9,5 @@ The IPC builder in common.passthrough.d.a.g requests system.firmware_upgrade wit
 The factory tool estimates part of its displayed progress from wait_time. This test module instead checks authenticated ONVIF firmware readback for up to ten minutes on 2020 and 80 after the single upload. An interrupted upload response leads to observation, without an automatic resend. The live camera needs uninterrupted power and Ethernet until completion. The final success condition is the expected MAC, model/hardware and target firmware readback.
 
 TP-Link documents older ONVIF port 2020 and the newer default 80, with compatibility access on 2020 retained: https://www.tp-link.com/bg/support/faq/4201/
+
+The first live attempt authenticated and obtained a successful upload-preparation response but stopped before file transfer because the URL validator omitted encoded path separators. The factory RetUrlResp.getUrl replaces %2f with /. The module now performs that normalization, rejects non-relative URLs and supports --prepare-only to validate preparation without transferring firmware.

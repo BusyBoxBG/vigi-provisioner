@@ -44,6 +44,17 @@ def multipart(image, filename, boundary):
     return header + image + f"\r\n--{boundary}--\r\n".encode("ascii")
 
 
+def upload_uri(result):
+    value = result.get("url")
+    if not isinstance(value, str):
+        raise ProvisioningError("Upload response has no URL string. No file uploaded.")
+    # RetUrlResp.getUrl in the factory tool converts encoded path separators.
+    value = re.sub("%2f", "/", value, flags=re.IGNORECASE)
+    if not re.fullmatch(r"/[A-Za-z0-9_./?=&%+-]+", value) or ".." in value or value.startswith("//"):
+        raise ProvisioningError("Unexpected upload URL. No file uploaded.")
+    return value
+
+
 def run(args):
     file = Path(args.file)
     if file.name != "Cx20I_en_2.2.1_Build_260605_Rel.12620n_up_boot_signed.bin":
@@ -72,7 +83,7 @@ def run(args):
         return
     if before.get("FirmwareVersion") != "2.0.4 Build 241101 Rel.52842n":
         raise ProvisioningError("This bench test expects the recorded 2.0.4 source firmware.")
-    if not args.execute:
+    if not args.execute and not args.prepare_only:
         print("Preflight passed. Run again with --execute to start the confirmed upgrade.")
         return
 
@@ -87,9 +98,11 @@ def run(args):
         {"method": "do", "system": {"firmware_upgrade": {"type": "0"}}},
         path=path,
     )
-    uri = result.get("url")
-    if not isinstance(uri, str) or not re.fullmatch(r"/[A-Za-z0-9_./?=&%+-]+", uri) or ".." in uri:
-        raise ProvisioningError("Unexpected upload URL. No file uploaded.")
+    uri = upload_uri(result)
+    print("Upload URL decoded and validated.", flush=True)
+    if args.prepare_only:
+        print("Upload preparation passed. No file uploaded.")
+        return
     token_prefix = path.removesuffix("/ds")
     boundary = "VigiUpload" + secrets.token_hex(16)
     body = multipart(image, file.name, boundary)
@@ -139,8 +152,11 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--file", required=True)
+    parser.add_argument("--prepare-only", action="store_true", help="Request and validate upload URL without uploading")
     parser.add_argument("--execute", action="store_true", help="Start the upgrade after explicit confirmation")
     args = parser.parse_args()
+    if args.execute and args.prepare_only:
+        parser.error("Choose either --execute or --prepare-only.")
     try:
         run(args)
     except (ProvisioningError, OSError, ValueError, requests.RequestException, EOFError) as exc:
