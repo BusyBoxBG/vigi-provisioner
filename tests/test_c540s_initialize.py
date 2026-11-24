@@ -33,7 +33,6 @@ class C540SInitializationTests(unittest.TestCase):
                 site.assert_not_called();network.assert_not_called()
             app=Application(database,args.config)
             with self.assertRaises(ValueError):app.start(device_id,firmware_mode="approved")
-            with self.assertRaises(ValueError):app.start(device_id,firmware_mode="preserve")
             with patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch,patch("vigi_provisioner.vigi_test_gui.threading.Thread"):
                 app.start(device_id,firmware_mode="initialize")
                 command=launch.call_args.args[0]

@@ -1,4 +1,4 @@
-"""Provision inspected C320I and C340S factory-state paths using the lab workflow."""
+"""Provision inspected C320I, C340S and C540S factory-state paths using the lab workflow."""
 
 import argparse
 import base64
@@ -24,6 +24,7 @@ from .vigi_discovery import discover
 from .vigi_initialization_config import VigiInitializationConfig, load_provisioning_profile
 from .vigi_onvif_gateway_config import prepare_default_gateway
 from .vigi_onvif_live_transport import ENDPOINT, SOURCE_IP, make_live_transport
+from .vigi_onvif import get_device_information
 from .vigi_onvif_network import get_network_default_gateway, get_network_interfaces
 from .vigi_onvif_static_ip import prepare_static_ipv4
 from .vigi_password import vigi_md5_password
@@ -652,7 +653,7 @@ def load_inventory_details(database, device_id):
     with closing(sqlite3.connect(uri, uri=True)) as db:
         db.row_factory = sqlite3.Row
         row = db.execute("SELECT * FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
-    if row is None or row["model"] not in {"VIGI C320I", "VIGI C340S"}:
+    if row is None or row["model"] not in {"VIGI C320I", "VIGI C340S", "VIGI C540S"}:
         raise ProvisioningError("No supported inventory assignment for that Device ID.")
     details = dict(row)
     hardware = details.get("hardware_version")
@@ -712,6 +713,8 @@ def provision(args):
         from dataclasses import replace
         config = replace(config, firmware_file=str(Path(override).resolve()))
     skip_firmware = getattr(args, "skip_firmware", False)
+    if expected_model == "VIGI C540S" and not skip_firmware:
+        raise ProvisioningError("C540S currently requires --skip-firmware; firmware upgrading is not yet inspected.")
     if skip_firmware:
         print("Firmware upgrade disabled for this run.", flush=True)
     bridge_package = Path(getattr(args, "c340s_bridge_package", None) or Path.home() / "vigi-c340s-2.5.1.zip")
@@ -764,7 +767,7 @@ def provision(args):
         and item.get("factory_flag") == 0
     ]
     if args.device_id:
-        suffix = "040" if expected_model == "VIGI C340S" else "020"
+        suffix = "040" if expected_model in {"VIGI C340S", "VIGI C540S"} else "020"
         expected_qr = f"TP1{args.device_id}{suffix}"
         if not matches or any((item.get("serial") or "").upper() != expected_qr for item in matches):
             raise ProvisioningError("Discovery did not confirm the approved MAC and Device ID.")
@@ -838,6 +841,15 @@ def provision(args):
                 raise ProvisioningError("Site configuration on intermediate 2.5.1 is untested. Choose approved updating to finish the route.")
             c340s_legacy = info.get("FirmwareVersion") == SOURCE
             print(f"Verified C340S firmware {info.get('FirmwareVersion')}; configuration schema: {'legacy' if c340s_legacy else 'modern'}; ONVIF port {c340s_port}.", flush=True)
+        elif expected_model == "VIGI C540S":
+            info = get_device_information(f"http://{CAMERA_IP}:80/onvif/device_service", USERNAME, password)
+            selected_interface(f"http://{CAMERA_IP}:80/onvif/device_service", password, mac)
+            if (info.get("Model") != "VIGI C540S"
+                    or info.get("HardwareId") not in {"1", "1.0"}
+                    or info.get("FirmwareVersion") != "3.2.0 Build 251111 Rel.66535n"
+                    or activation_format != "modern"):
+                raise ProvisioningError("C540S identity, firmware or activation format is outside the inspected path. No site or network settings sent.")
+            print("Verified C540S hardware 1.0, firmware 3.2.0 Build 251111; modern schema, ONVIF port 80; preserving firmware.", flush=True)
         elif config.firmware_file is not None and not skip_firmware:
             from .vigi_firmware_upgrade import upgrade_after_activation
             try:
@@ -962,7 +974,7 @@ def main():
                         help="Skip firmware inspection and upgrade even when enabled in the profile")
     parser.add_argument("--config", help="Shared TOML profile (default: local provisioning.toml if present)")
     parser.add_argument("--inventory", help="Read-only SQLite inventory path")
-    parser.add_argument("--device-id", help="Scanned C320I Device ID")
+    parser.add_argument("--device-id", help="Scanned camera Device ID")
     parser.add_argument("--mac", help="Expected factory camera MAC")
     parser.add_argument("--pin", help="Verified post-reset SHA-256 certificate fingerprint")
     parser.add_argument("--target-ip", help="Unused IPv4 address approved for this camera")
