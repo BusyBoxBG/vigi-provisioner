@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 import requests
 
-FIELDS = ("id", "model", "hardware_version", "region", "support_url", "firmware_url", "firmware_version", "last_checked", "check_status")
+FIELDS = ("id", "model", "hardware_version", "region", "support_url", "firmware_url", "firmware_version", "last_checked", "check_status", "approved_at", "approved_image", "approved_sha256", "approved_zip", "approved_zip_sha256")
 
 def official_url(value, *, firmware=False):
     parts = urlsplit(value)

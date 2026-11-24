@@ -17,6 +17,7 @@ from .vigi_onvif import get_device_information
 from .vigi_discovery import discover
 from .vigi_onvif_live_transport import SOURCE_IP
 from .vigi_model_catalog import load_catalog, save_catalog, validate_model, check_firmware
+from .vigi_firmware_cache import approve_download, approved_image
 
 PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
 <style>
@@ -46,6 +47,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <label for="firmwareMode">Firmware handling</label>
 <select id="firmwareMode" style="width:100%;padding:10px">
+<option value="approved">Update to default approved firmware after initialization</option>
 <option value="preserve">Keep existing firmware (no upgrade)</option>
 <option value="profile">Allow firmware upgrade configured in provisioning.toml</option>
 </select><p><small>Activation format is detected automatically. Unsupported legacy settings are listed in the step log. Supported settings still require readback verification.</small></p>
@@ -54,15 +56,17 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label id="question"></label><input id="answer" autocomplete="off"><button onclick="answer()">Confirm / Continue</button></div>
 <h2>Provisioning steps</h2><pre id="log"></pre></section></div></div><section><h2>Camera models and firmware</h2>
 <p>Catalog entries describe model, hardware and region. They do not enable untested provisioning or authorize firmware uploads. Checks require Internet access and download only support-page text.</p>
-<div style="overflow:auto"><table><thead><tr><th>Model / hardware / region</th><th>Recorded firmware</th><th>Check / sources</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+<button onclick="downloadDefaults()">Download and approve all listed defaults</button>
+<div style="overflow:auto"><table><thead><tr><th>Model / hardware / region</th><th>Default initial update firmware</th><th>Check / sources</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+<form id="approveForm" hidden><h3>Approve default firmware</h3><p id="approveTarget"></p><label for="approveVersion">Version to approve</label><input id="approveVersion" required><button>Confirm default and download</button><button type="button" onclick="document.getElementById('approveForm').hidden=true">Cancel</button></form>
 <details><summary>Add or edit model</summary><form id="modelForm">
 <label>Catalog ID (reuse an ID to update it)</label><input name="id" required placeholder="vigi-c320i-v1.20">
 <label>Model</label><input name="model" required placeholder="VIGI C320I">
 <label>Hardware version</label><input name="hardware_version" required placeholder="1.20">
 <label>Region</label><input name="region" required value="UN">
 <label>Official firmware support page</label><input name="support_url" type="url" required>
-<label>Recorded firmware version</label><input name="firmware_version">
-<label>Recorded firmware ZIP URL</label><input name="firmware_url" type="url">
+<label>Default initial update firmware version</label><input name="firmware_version">
+<label>Default initial update firmware ZIP URL</label><input name="firmware_url" type="url">
 <button>Save model</button></form></details><p id="modelMessage" role="status"></p></section>
 </main>
 <script>
@@ -71,7 +75,7 @@ async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",h
 function cell(row,text){let td=document.createElement("td");td.textContent=text;row.append(td)}
 async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;document.getElementById("firmwareMode").disabled=s.running;
 let table=document.getElementById("rows");let selected=document.querySelector("input[name=selected]:checked")?.value;table.replaceChildren();
-for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+(c.hardware_version?" V"+c.hardware_version:"")+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"unverified");
+for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+(c.hardware_version?" V"+c.hardware_version:"")+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);let link=document.createElement("button");link.textContent="Link selected catalog model";link.disabled=s.running;link.onclick=async()=>{try{let id=document.getElementById("catalogChoice").value;if(!id)throw Error("Choose the exact model/hardware in Add camera first");await api("/api/camera/model",{device_id:c.device_id,catalog_id:id});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(link);row.append(serialCell);cell(row,c.status||"unverified");
 let actions=document.createElement("td"),remove=document.createElement("button");
 remove.textContent="Delete";remove.style.background="#a33838";remove.disabled=s.running;
 remove.onclick=async()=>{
@@ -87,12 +91,16 @@ pending=s.prompt;document.getElementById("prompt").hidden=!pending;if(pending){d
 }catch(e){document.getElementById("message").textContent=e.message}}
 document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";refresh()}catch(e){document.getElementById("message").textContent=e.message}};
 async function probe(){try{await api("/api/discover",{});refresh()}catch(e){document.getElementById("probeStatus").textContent=e.message}}
-async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id,allow_firmware_upgrade:document.getElementById("firmwareMode").value==="profile"});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
+async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id,firmware_mode:document.getElementById("firmwareMode").value});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function answer(){try{await api("/api/answer",{id:pending.id,value:document.getElementById("answer").value});document.getElementById("answer").value="";refresh()}catch(e){document.getElementById("message").textContent=e.message}}
+async function downloadDefaults(){let failures=[];for(let m of catalogModels){if(!m.firmware_url||!m.firmware_version)continue;document.getElementById("modelMessage").textContent="Downloading default for "+m.model+" V"+m.hardware_version+"...";try{await api("/api/model/approve",{id:m.id,url:m.firmware_url,version:m.firmware_version})}catch(e){failures.push(m.id+": "+e.message)}}await loadModels();document.getElementById("modelMessage").textContent=failures.length?"Completed with errors: "+failures.join("; "):"All listed defaults downloaded and approved locally. No cameras upgraded."}
+let pendingFirmware=null;
+async function approveFirmware(m,url,version){let name=decodeURIComponent(url.split("/").pop()),match=name.match(/_(\d+\.\d+\.\d+)[ _]+Build[ _]+(\d+)/i);pendingFirmware={id:m.id,url:url};document.getElementById("approveTarget").textContent=m.model+" V"+m.hardware_version+" ("+m.region+"): "+name+". Downloads locally; no camera upgrade is started.";document.getElementById("approveVersion").value=version||(match?match[1]+" Build "+match[2]:"");document.getElementById("approveForm").hidden=false;document.getElementById("approveForm").scrollIntoView({block:"center"})}
+document.getElementById("approveForm").onsubmit=async e=>{e.preventDefault();if(!pendingFirmware)return;document.getElementById("modelMessage").textContent="Downloading firmware ZIP and preparing approved local image...";try{await api("/api/model/approve",{...pendingFirmware,version:document.getElementById("approveVersion").value});document.getElementById("approveForm").hidden=true;pendingFirmware=null;await loadModels();document.getElementById("modelMessage").textContent="Default approved firmware downloaded. Camera upgrade still checks supported model, hardware and image."}catch(error){document.getElementById("modelMessage").textContent=error.message}};
 let catalogModels=[];
 function chooseModel(){let m=catalogModels.find(x=>x.id===document.getElementById("catalogChoice").value);if(m){document.getElementById("cameraModel").value=m.model;document.getElementById("cameraHardware").value=m.hardware_version}}
 function sourceLink(parent,url,label){if(!url)return;let a=document.createElement("a");a.href=url;a.textContent=label;a.target="_blank";a.rel="noopener noreferrer";parent.append(a,document.createElement("br"))}
-async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Recorded ZIP");row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Review listed candidates; recorded firmware was not replaced."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates)sourceLink(details,url,decodeURIComponent(url.split("/").pop()));actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
+async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Default ZIP");let cached=document.createElement("div");cached.textContent=m.approved_image?"Approved local image: "+m.approved_image:"Not downloaded / not approved";recorded.append(cached);let download=document.createElement("button");download.textContent="Download and approve default";download.disabled=!m.firmware_url;download.onclick=()=>approveFirmware(m,m.firmware_url,m.firmware_version);recorded.append(download);row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Choose a candidate to download and approve; the current default was not changed."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates){sourceLink(details,url,decodeURIComponent(url.split("/").pop()));let approve=document.createElement("button");approve.textContent="Use as default and download";approve.onclick=()=>approveFirmware(m,url,"");details.append(approve)}actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
 document.getElementById("modelForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/model/save",Object.fromEntries(new FormData(e.target)));await loadModels()}catch(error){document.getElementById("modelMessage").textContent=error.message}};
 loadModels();refresh();setInterval(refresh,1000);
 </script></body></html>"""
@@ -192,19 +200,38 @@ class Application:
             with self.lock:
                 self.probing = False
 
-    def start(self, device_id, allow_firmware_upgrade=False):
+    def start(self, device_id, allow_firmware_upgrade=False, firmware_mode=None):
         if type(allow_firmware_upgrade) is not bool:
             raise ValueError("Firmware upgrade choice must be true or false.")
+        if firmware_mode not in (None, "approved", "preserve", "profile"):
+            raise ValueError("Unknown firmware handling mode.")
         with self.lock, closing(sqlite3.connect(self.database)) as db, db:
             if self.running or self.probing:
                 raise ValueError("Wait for discovery or provisioning to finish.")
-            row = db.execute("SELECT model,hardware_version FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
+            row = db.execute("SELECT model,hardware_version,catalog_id FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
             if row is None or row[0] != "VIGI C320I" or (row[1] and row[1] not in ("1.20", "1.2")):
                 raise ValueError("Provisioning is currently tested for VIGI C320I hardware 1.20. Other entries are inventory-only.")
+            firmware_args = []
+            if firmware_mode == "approved":
+                rows = load_catalog(self.catalog_path)
+                selected = next((r for r in rows if r["id"] == row[2]), None)
+                if selected is None or selected["model"] != row[0] or selected["hardware_version"] != row[1] or selected["region"] != "UN":
+                    raise ValueError("Link this camera to its exact catalog model/hardware before approved-firmware provisioning.")
+                image = approved_image(selected, self.firmware_dir)
+                # Catalog approval never bypasses the existing inspected-image restriction.
+                from .vigi_firmware_upgrade import inspect_firmware
+                try:
+                    inspect_firmware(image)
+                except Exception as exc:
+                    raise ValueError(f"Approved image is cached, but this upgrade engine does not support it: {exc}") from None
+                firmware_args = ["--firmware-file", str(image)]
+                allow_firmware_upgrade = True
+            elif firmware_mode is not None:
+                allow_firmware_upgrade = firmware_mode == "profile"
             self.process = subprocess.Popen(
                 [sys.executable, "-u", "-m", "vigi_provisioner.vigi_test_gui", "--worker",
                  "--inventory", self.database, "--config", self.config, "--device-id", device_id]
-                + ([] if allow_firmware_upgrade else ["--skip-firmware"]),
+                + firmware_args + ([] if allow_firmware_upgrade else ["--skip-firmware"]),
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", bufsize=1,
             )
@@ -302,6 +329,8 @@ def worker(args):
     sys.argv = [sys.argv[0],"--inventory",args.inventory,"--config",args.config,"--device-id",args.device_id]
     if args.skip_firmware:
         sys.argv.append("--skip-firmware")
+    if args.firmware_file:
+        sys.argv.extend(["--firmware-file", args.firmware_file])
     workflow.main()
 
 
@@ -309,6 +338,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--firmware-dir", help="Firmware cache folder (default: firmware beside profile)")
+    parser.add_argument("--firmware-file", help=argparse.SUPPRESS)
     parser.add_argument("--models", help="Editable model catalog TOML (default: models.toml beside profile)")
     parser.add_argument("--bind", default="127.0.0.1", help="Local IPv4 interface address to serve on")
     parser.add_argument("--port",type=int,default=8765)
@@ -335,6 +366,8 @@ def main():
         save_catalog(catalog_path, load_catalog(example) if example.exists() else [])
     load_catalog(catalog_path)
     app = Application(database,config)
+    app.catalog_path = catalog_path
+    app.firmware_dir = Path(args.firmware_dir).resolve() if args.firmware_dir else Path(config).with_name("firmware")
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -394,6 +427,33 @@ def main():
                             row["last_checked"] = ""
                             row["check_status"] = "Edited; check official page again."
                         save_catalog(catalog_path, [r for r in rows if r["id"] != row["id"]] + [row])
+                elif self.path == "/api/model/approve":
+                    with app.lock:
+                        if app.running or app.probing:
+                            raise ValueError("Wait for active operations before downloading firmware.")
+                        rows = load_catalog(catalog_path)
+                        original = next((r for r in rows if r["id"] == data["id"]), None)
+                    if original is None:
+                        raise ValueError("Model catalog entry not found.")
+                    try:
+                        approved = approve_download(original, data["url"], data["version"], app.firmware_dir)
+                    except Exception as exc:
+                        raise ValueError(f"Firmware download/approval failed: {exc}. Previous default unchanged.") from None
+                    with app.lock:
+                        rows = load_catalog(catalog_path)
+                        if app.running or next((r for r in rows if r["id"] == data["id"]), None) != original:
+                            raise ValueError("Catalog or provisioning state changed. Approval not saved; retry.")
+                        save_catalog(catalog_path, [approved if r["id"] == data["id"] else r for r in rows])
+                elif self.path == "/api/camera/model":
+                    with app.lock, closing(sqlite3.connect(database)) as db, db:
+                        if app.running:
+                            raise ValueError("Wait for provisioning before linking a camera.")
+                        selected = next((r for r in load_catalog(catalog_path) if r["id"] == data["catalog_id"]), None)
+                        if selected is None:
+                            raise ValueError("Select a catalog model first.")
+                        result = db.execute("UPDATE camera_inventory SET catalog_id=?,model=?,hardware_version=? WHERE device_id=?", (selected["id"], selected["model"], selected["hardware_version"], data["device_id"]))
+                        if result.rowcount != 1:
+                            raise ValueError("Camera record not found.")
                 elif self.path == "/api/model/check":
                     with app.lock:
                         if app.running:
@@ -405,7 +465,7 @@ def main():
                     try:
                         checked = check_firmware(original)
                     except Exception as exc:
-                        raise ValueError(f"Firmware check failed ({type(exc).__name__}). Recorded firmware unchanged; check Internet access or inspect the support page.") from None
+                        raise ValueError(f"Firmware check failed ({type(exc).__name__}). Default initial update firmware unchanged; check Internet access or inspect the support page.") from None
                     with app.lock:
                         rows = load_catalog(catalog_path)
                         current = next((r for r in rows if r["id"] == data["id"]), None)
@@ -440,7 +500,7 @@ def main():
                 elif self.path == "/api/delete":
                     app.delete_camera(data["device_id"])
                 elif self.path == "/api/start":
-                    app.start(data["device_id"], data.get("allow_firmware_upgrade", False))
+                    app.start(data["device_id"], data.get("allow_firmware_upgrade", False), data.get("firmware_mode"))
                 elif self.path == "/api/answer":
                     app.answer(data)
                 else:

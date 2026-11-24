@@ -24,3 +24,5 @@ dist/
 /provisioning.toml
 
 /models.toml
+
+/firmware/

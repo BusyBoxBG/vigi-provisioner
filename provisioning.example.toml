@@ -97,8 +97,9 @@ max_num_err = 5
 
 # Optional firmware check after activation, before site settings.
 # Enable once the inspected file is present on the Ubuntu host.
-# GUI defaults to Keep existing firmware, which skips this stage even if enabled.
-# Select Allow firmware upgrade in the GUI to permit this configured stage.
+# GUI defaults to the catalog-approved cached firmware, overriding this file.
+# Select Keep existing firmware to preserve stock firmware, or the profile
+# upgrade option to use this configured stage instead of the catalog.
 # CLI --skip-firmware also overrides this setting for preserved-stock testing.
 [firmware]
 enabled = false

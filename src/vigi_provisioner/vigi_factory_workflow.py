@@ -678,6 +678,10 @@ def provision(args):
         else None
     )
     config = profile or VigiInitializationConfig(zone_id="Europe/Vilnius")
+    override = getattr(args, "firmware_file", None)
+    if override:
+        from dataclasses import replace
+        config = replace(config, firmware_file=str(Path(override).resolve()))
     skip_firmware = getattr(args, "skip_firmware", False)
     if skip_firmware:
         print("Firmware upgrade disabled for this run.", flush=True)
@@ -816,6 +820,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2.0.4"), default="auto",
                         help="Default auto verifies a known factory web-resource signature before activation")
+    parser.add_argument("--firmware-file", help="Explicit approved local firmware image, overriding the profile file")
     parser.add_argument("--skip-firmware", action="store_true",
                         help="Skip firmware inspection and upgrade even when enabled in the profile")
     parser.add_argument("--config", help="Shared TOML profile (default: local provisioning.toml if present)")

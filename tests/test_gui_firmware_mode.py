@@ -29,3 +29,21 @@ class GuiFirmwareModeTests(unittest.TestCase):
         app = Application("unused", "unused")
         with self.assertRaises(ValueError):
             app.start("TEST", "false")
+
+    def test_approved_mode_passes_cached_image_to_worker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = str(Path(directory) / "inventory.sqlite3")
+            initialize_inventory(database)
+            with closing(sqlite3.connect(database)) as db, db:
+                db.execute("INSERT INTO camera_inventory (device_id,mac_address,model,hardware_version,catalog_id,approved_ipv4,prefix_length,gateway_ipv4) VALUES (?,?,?,?,?,?,?,?)",
+                           ("TEST", "1869459F31F7", "VIGI C320I", "1.20", "test-model", "192.168.0.150", 24, "192.168.0.1"))
+            app = Application(database, "profile.toml")
+            app.catalog_path, app.firmware_dir = "catalog.toml", directory
+            model = dict(id="test-model", model="VIGI C320I", hardware_version="1.20", region="UN")
+            image = Path(directory) / "approved.bin"
+            with patch("vigi_provisioner.vigi_test_gui.load_catalog", return_value=[model]), patch("vigi_provisioner.vigi_test_gui.approved_image", return_value=image), patch("vigi_provisioner.vigi_firmware_upgrade.inspect_firmware") as inspect, patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch, patch("vigi_provisioner.vigi_test_gui.threading.Thread"):
+                app.start("TEST", firmware_mode="approved")
+                inspect.assert_called_once_with(image)
+                command = launch.call_args.args[0]
+                self.assertEqual(command[command.index("--firmware-file") + 1], str(image))
+                self.assertNotIn("--skip-firmware", command)

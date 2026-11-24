@@ -241,7 +241,7 @@ Use the [local browser GUI](docs/test-gui.md) to add inventory records, select a
 
 Automatic activation detection is shared by CLI and GUI. It recognizes the exact inspected legacy and modern web-resource signatures and stops before activation for unknown builds. See [activation compatibility](docs/https-initialization.md#automatic-activation-selection). To preserve stock firmware during CLI tests, pass `--skip-firmware`; for GUI tests choose **Keep existing firmware (no upgrade)**.
 
-The GUI now offers **Keep existing firmware (no upgrade)** by default and an explicit option to allow profile-configured upgrades. Both modes share automatic activation detection. Preserved 2.0.4 provisioning on the tested C320I 1.20 completed with readback and visual verification, with unavailable settings reported in the log. See [GUI firmware handling](docs/test-gui.md#existing-firmware-and-automatic-compatibility).
+The GUI offers **Keep existing firmware (no upgrade)** for stock-firmware tests, **Update to default approved firmware after initialization** as the default mode, and a separate profile-controlled upgrade option. Both modes share automatic activation detection. Preserved 2.0.4 provisioning on the tested C320I 1.20 completed with readback and visual verification, with unavailable settings reported in the log. See [GUI firmware handling](docs/test-gui.md#existing-firmware-and-automatic-compatibility).
 
 ### Verified provisioning paths
 
@@ -258,3 +258,5 @@ Legacy `date_format` and `time_format` are unsupported. `obj_filter_enabled` and
 ### Model and firmware catalog
 
 The GUI includes an editable **Camera models and firmware** catalog seeded with 12 model/hardware combinations. `models.toml` is separate from individual camera inventory and can be edited over the terminal. Add/edit models in the GUI, select a catalog model when adding a camera, and use **Check for new firmware** to list official firmware links without downloading or installing packages. Internet checks are optional; offline catalog use remains available. See [model catalog](docs/model-catalog.md) for fields, limitations and setup. A catalog entry does not establish provisioning or upgrade compatibility.
+
+The catalog now manages **default approved firmware**. Download the current defaults or explicitly choose a checked candidate, review its version, and approve its local download. Ubuntu stores ZIPs/images under `firmware/` beside the site profile, with checksums and approval metadata in `models.toml`. Provisioning uses the exact linked model/hardware default after activation and before configuration, subject to the existing tested upgrade limits. **Keep existing firmware** must be selected for preserved-stock tests. See [approval and cache workflow](docs/model-catalog.md#default-approved-firmware-and-local-downloads).

@@ -834,3 +834,7 @@ Experimental bench CLI for the identified older-firmware C320I. Checks the exact
 ## vigi_model_catalog.py
 
 Reads and atomically saves the model/hardware/region TOML catalog. Validates official URLs, extracts firmware ZIP links, and checks bounded official support-page responses. Camera inventory linkage is implemented in vigi_test_gui.py. No camera or firmware upload operations are performed. See [catalog details](model-catalog.md).
+
+## vigi_firmware_cache.py
+
+Downloads selected official firmware ZIPs, validates size and single-image layout, stores the ZIP and image with SHA-256 hashes, and validates approved local image files before GUI provisioning. No camera requests are issued. The GUI supplies model approval and links the selected image to the factory workflow through --firmware-file. See [firmware cache](model-catalog.md#default-approved-firmware-and-local-downloads).
