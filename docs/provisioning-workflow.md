@@ -111,3 +111,7 @@ Enable the optional [firmware] table to check and upgrade immediately after acco
 ## Preserved C340S test path
 
 Inventory-driven full provisioning also accepts the inspected C340S V1 flow only with firmware upgrading disabled. The `040` discovery QR wrapper, legacy-2024 activation signature, and authenticated ONVIF model/MAC/hardware/firmware are checked. The source firmware must be 2.0.3 Build 240412 Rel.42481n on hardware 1.0. Staged account, site settings, static network and DNS tests passed; the combined GUI cycle awaits hardware testing. See [C340S mode](test-gui.md#c340s-v1-full-provisioning-with-existing-firmware).
+
+### Motion event recording disabled
+
+The current desired motion profile uses `record = false`, mapping to `motion_detection.motion_notif_list.record_enabled = "off"`. This unchecks Event → Basic Event → Motion Detection → Processing mode → Record. Prior hardware tests used record enabled; those results describe the earlier profile. Existing local `provisioning.toml` files must be updated explicitly because Git updates do not overwrite them. The workflow verifies the requested flag after writing, for both legacy and modern motion schemas. Snapshot capture remains independently controlled by `snapshots = true`. This field controls motion-triggered recording only; it does not configure continuous recording, recording schedules, NVR recording or audio recording.

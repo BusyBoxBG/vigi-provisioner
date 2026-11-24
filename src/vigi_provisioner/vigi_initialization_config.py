@@ -254,7 +254,7 @@ def load_motion_profile(motion):
     expected = {
         "enabled": True, "sensitivity": 85, "object_filter": False,
         "people": True, "vehicles": True, "target_validity": "medium",
-        "schedule": "24/7", "record": True, "snapshots": True,
+        "schedule": "24/7", "record": False, "snapshots": True,
         "push_messages": False, "report_server": False, "email": False,
         "ftp": False, "light_alarm": False, "sound_alarm": False,
         "alarm_output_1": False,

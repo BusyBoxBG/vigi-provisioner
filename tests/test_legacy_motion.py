@@ -16,6 +16,7 @@ class LegacyMotionTests(unittest.TestCase):
         self.motion["motion_det"].pop("obj_filter_enabled")
         self.motion["motion_notif_list"].pop("report_server_enabled")
         self.motion["motion_notif_list"]["capture_enabled"] = "off"
+        self.motion["motion_notif_list"]["record_enabled"] = "on"
         self.motion["polygon_region_info"] = [{"polygon_region_info_1": {
             "points_num": 4, "points_x": [0, 10000, 10000, 0],
             "points_y": [0, 0, 10000, 10000],
@@ -37,6 +38,7 @@ class LegacyMotionTests(unittest.TestCase):
         configure_motion_detection(Mock(post=self.post), "/test", self.target, legacy=True)
         self.assertEqual(self.target, original)
         self.assertEqual(self.motion["motion_notif_list"]["capture_enabled"], "on")
+        self.assertEqual(self.motion["motion_notif_list"]["record_enabled"], "off")
         write = next(p for p in self.requests if p["method"] == "set")["motion_detection"]
         self.assertNotIn("obj_filter_enabled", write["motion_det"])
         self.assertNotIn("report_server_enabled", write["motion_notif_list"])
