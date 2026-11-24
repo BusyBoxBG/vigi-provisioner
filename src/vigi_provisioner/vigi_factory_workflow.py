@@ -629,17 +629,24 @@ def load_inventory_alias(database, device_id):
     return alias
 
 
-def load_inventory_assignment(database, device_id):
+def load_inventory_details(database, device_id):
     uri = Path(database).resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
-        row = db.execute(
-            """SELECT mac_address, approved_ipv4, prefix_length, gateway_ipv4
-               FROM camera_inventory WHERE device_id = ? AND model = 'VIGI C320I'""",
-            (device_id,),
-        ).fetchone()
-    if row is None:
-        raise ProvisioningError("No approved C320I assignment for that Device ID.")
-    return row
+        db.row_factory = sqlite3.Row
+        row = db.execute("SELECT * FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
+    if row is None or row["model"] not in {"VIGI C320I", "VIGI C340S"}:
+        raise ProvisioningError("No supported inventory assignment for that Device ID.")
+    details = dict(row)
+    hardware = details.get("hardware_version")
+    allowed = {"1.2", "1.20"} if row["model"] == "VIGI C320I" else {"1", "1.0"}
+    if hardware and hardware not in allowed:
+        raise ProvisioningError("Inventory hardware version is not supported by this workflow.")
+    return details
+
+
+def load_inventory_assignment(database, device_id):
+    row = load_inventory_details(database, device_id)
+    return tuple(row[key] for key in ("mac_address", "approved_ipv4", "prefix_length", "gateway_ipv4"))
 
 
 def approve_observed_pin(camera_ip=CAMERA_IP):
@@ -673,6 +680,10 @@ def pin_after_network_move(camera_ip, original_pin, *, independently_verified):
 
 
 def provision(args):
+    inventory = load_inventory_details(args.inventory, args.device_id) if args.inventory else None
+    expected_model = inventory["model"] if inventory else "VIGI C320I"
+    if expected_model == "VIGI C340S" and not getattr(args, "skip_firmware", False):
+        raise ProvisioningError("C340S full provisioning currently requires firmware upgrading disabled (--skip-firmware).")
     profile_path = Path(args.config or "provisioning.toml")
     profile = (
         load_provisioning_profile(profile_path)
@@ -726,11 +737,12 @@ def provision(args):
         item for item in devices
         if item.get("ip") == CAMERA_IP
         and (item.get("mac") or "").lower().replace(":", "-") == mac
-        and (item.get("model") or "").upper() == "VIGI C320I"
+        and (item.get("model") or "").upper() == expected_model.upper()
         and item.get("factory_flag") == 0
     ]
     if args.device_id:
-        expected_qr = f"TP1{args.device_id}020"
+        suffix = "040" if expected_model == "VIGI C340S" else "020"
+        expected_qr = f"TP1{args.device_id}{suffix}"
         if not matches or any((item.get("serial") or "").upper() != expected_qr for item in matches):
             raise ProvisioningError("Discovery did not confirm the approved MAC and Device ID.")
         # Repeated identical observations can be returned by a single probe.
@@ -743,7 +755,9 @@ def provision(args):
             raise ProvisioningError("Discovery reported conflicting camera identity.")
         print(f"Inventory matched Device ID {args.device_id}, MAC {mac}: {target}/{args.prefix}, gateway {gateway['gateway']}.")
     elif not matches:
-        raise ProvisioningError("Expected factory-state VIGI C320I was not discovered.")
+        raise ProvisioningError(f"Expected factory-state {expected_model} was not discovered.")
+    if any(d.get("ip") == CAMERA_IP and d not in matches for d in devices):
+        raise ProvisioningError("Discovery reported a different camera at the factory address.")
     if pin is None:
         pin = approve_observed_pin()
     camera = CameraHTTPS(pin)
@@ -754,6 +768,8 @@ def provision(args):
     if activation_format == "auto":
         activation_format = detect_activation_format(camera)
 
+    if expected_model == "VIGI C340S" and activation_format != "legacy-2024":
+        raise ProvisioningError("C340S provisioning currently supports the inspected legacy-2024 activation flow only.")
     print(f"Camera {mac} at {CAMERA_IP} will move to {target}/{args.prefix}, gateway {gateway['gateway']}.")
     if input(f"Confirm {target} is unused and reserved for this camera by typing it: ").strip() != target:
         raise ProvisioningError("Confirmation did not match. No settings written.")
@@ -770,6 +786,16 @@ def provision(args):
 
     try:
         path = login(camera, password)
+        if expected_model == "VIGI C340S":
+            from .vigi_onvif import get_device_information
+            endpoint = f"http://{CAMERA_IP}:2020/onvif/device_service"
+            selected_interface(endpoint, password, mac)
+            info = get_device_information(endpoint, USERNAME, password)
+            if (info.get("Model") != "VIGI C340S"
+                    or info.get("HardwareId") not in {"1", "1.0"}
+                    or info.get("FirmwareVersion") != "2.0.3 Build 240412 Rel.42481n"):
+                raise ProvisioningError("C340S model/hardware/firmware differs from the staged configuration test. No site or network settings sent.")
+            print("Verified C340S hardware 1.0, firmware 2.0.3 Build 240412; preserving firmware.", flush=True)
         if config.firmware_file is not None and not skip_firmware:
             from .vigi_firmware_upgrade import upgrade_after_activation
             try:

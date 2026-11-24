@@ -43,7 +43,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label>Approved IP address</label><input name="approved_ipv4" value="192.168.0.150" required>
 <label>Netmask or prefix</label><input name="prefix" value="255.255.255.0" required>
 <label>Gateway</label><input name="gateway_ipv4" value="192.168.0.1" required>
-<button>Save inventory</button></form><p><small>The current provisioning engine supports the tested C320I lab addresses. Other models can be recorded for future testing.</small></p></section>
+<button>Save inventory</button></form><p><small>Full provisioning: tested C320I hardware 1.20, and C340S V1 with Keep existing firmware. Other models can be recorded for future testing.</small></p></section>
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <label for="firmwareMode">Firmware handling</label>
 <select id="firmwareMode" style="width:100%;padding:10px">
@@ -212,6 +212,9 @@ class Application:
             if firmware_mode == "initialize":
                 if row is None or row[0] not in {"VIGI C320I", "VIGI C340S"}:
                     raise ValueError("Initialization-only currently supports the inspected C320I/C340S flows.")
+            elif row and row[0] == "VIGI C340S":
+                if firmware_mode != "preserve" or (row[1] and row[1] not in {"1", "1.0"}):
+                    raise ValueError("C340S V1 currently supports full provisioning only with Keep existing firmware selected. Firmware upgrades remain blocked.")
             elif row is None or row[0] != "VIGI C320I" or (row[1] and row[1] not in ("1.20", "1.2")):
                 raise ValueError("Provisioning is currently tested for VIGI C320I hardware 1.20. Other entries are inventory-only.")
             firmware_args = []

@@ -107,3 +107,7 @@ The optional [login_error] table reproduces the verified disabled configuration 
 ### Firmware stage before configuration
 
 Enable the optional [firmware] table to check and upgrade immediately after account activation and login. See [firmware upgrade](firmware-upgrade.md) for the inspected package and currently supported source version. The GUI asks for separate upload confirmation, verifies the target firmware through ONVIF after reboot, and completes certificate approval and fresh HTTPS login before applying the site settings. If the target version is already installed, it skips the upload. The combined factory workflow passed activation, an actual 2.0.4-to-2.2.1 upgrade, fresh login and complete site configuration on hardware.
+
+## Preserved C340S test path
+
+Inventory-driven full provisioning also accepts the inspected C340S V1 flow only with firmware upgrading disabled. The `040` discovery QR wrapper, legacy-2024 activation signature, and authenticated ONVIF model/MAC/hardware/firmware are checked. The source firmware must be 2.0.3 Build 240412 Rel.42481n on hardware 1.0. Staged account, site settings, static network and DNS tests passed; the combined GUI cycle awaits hardware testing. See [C340S mode](test-gui.md#c340s-v1-full-provisioning-with-existing-firmware).

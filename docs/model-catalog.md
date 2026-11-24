@@ -58,3 +58,5 @@ Downloads and approvals are available for all catalog entries. Actual upgrade/pr
 `vigi_firmware_cache.py` performs bounded official downloads, safe single-image extraction, checksum recording and cache-file validation. It never contacts a camera. Offline cache tests cover successful approval, unchanged previous rows, multiple-image rejection, unselected URLs and altered cached files. An official Cx20I download and GUI approval passed locally with the previously verified image hash; no camera upgrade was performed during this feature test.
 
 The GUI also permits an explicit initialization-only experiment for C340S using the inspected factory activation page. This does not authorize full provisioning or firmware upload; see [initialization-only tests](test-gui.md#initialization-only-compatibility-tests).
+
+C340S V1 can now run the staged-tested full configuration path in Keep existing firmware mode, with authenticated checks for hardware 1.0 and firmware 2.0.3 Build 240412 Rel.42481n before site writes. Its firmware approval/download catalog remains separate from upgrade permission: C340S uploading is still blocked. The first combined GUI cycle is pending.
