@@ -56,3 +56,5 @@ Internet access is required only to check or download; previously approved local
 Downloads and approvals are available for all catalog entries. Actual upgrade/provisioning integration still supports only the tested C320I hardware 1.20 UN, inspected 2.2.1 image and known source-version path. A newer catalog approval or another model does not bypass these limits; the GUI explains an unsupported image before activation.
 
 `vigi_firmware_cache.py` performs bounded official downloads, safe single-image extraction, checksum recording and cache-file validation. It never contacts a camera. Offline cache tests cover successful approval, unchanged previous rows, multiple-image rejection, unselected URLs and altered cached files. An official Cx20I download and GUI approval passed locally with the previously verified image hash; no camera upgrade was performed during this feature test.
+
+The GUI also permits an explicit initialization-only experiment for C340S using the inspected factory activation page. This does not authorize full provisioning or firmware upload; see [initialization-only tests](test-gui.md#initialization-only-compatibility-tests).

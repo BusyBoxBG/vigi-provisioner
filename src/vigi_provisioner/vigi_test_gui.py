@@ -47,7 +47,8 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <label for="firmwareMode">Firmware handling</label>
 <select id="firmwareMode" style="width:100%;padding:10px">
-<option value="approved">Update to default approved firmware after initialization</option>
+<option value="initialize">Initialize only (no update, settings or IP change)</option>
+<option value="approved" selected>Update to default approved firmware after initialization</option>
 <option value="preserve">Keep existing firmware (no upgrade)</option>
 <option value="profile">Allow firmware upgrade configured in provisioning.toml</option>
 </select><p><small>Activation format is detected automatically. Unsupported legacy settings are listed in the step log. Supported settings still require readback verification.</small></p>
@@ -202,16 +203,22 @@ class Application:
     def start(self, device_id, allow_firmware_upgrade=False, firmware_mode=None):
         if type(allow_firmware_upgrade) is not bool:
             raise ValueError("Firmware upgrade choice must be true or false.")
-        if firmware_mode not in (None, "approved", "preserve", "profile"):
+        if firmware_mode not in (None, "approved", "preserve", "profile", "initialize"):
             raise ValueError("Unknown firmware handling mode.")
         with self.lock, closing(sqlite3.connect(self.database)) as db, db:
             if self.running or self.probing:
                 raise ValueError("Wait for discovery or provisioning to finish.")
             row = db.execute("SELECT model,hardware_version,catalog_id FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
-            if row is None or row[0] != "VIGI C320I" or (row[1] and row[1] not in ("1.20", "1.2")):
+            if firmware_mode == "initialize":
+                if row is None or row[0] not in {"VIGI C320I", "VIGI C340S"}:
+                    raise ValueError("Initialization-only currently supports the inspected C320I/C340S flows.")
+            elif row is None or row[0] != "VIGI C320I" or (row[1] and row[1] not in ("1.20", "1.2")):
                 raise ValueError("Provisioning is currently tested for VIGI C320I hardware 1.20. Other entries are inventory-only.")
             firmware_args = []
-            if firmware_mode == "approved":
+            if firmware_mode == "initialize":
+                firmware_args = ["--initialize-only"]
+                allow_firmware_upgrade = False
+            elif firmware_mode == "approved":
                 rows = load_catalog(self.catalog_path)
                 selected = next((r for r in rows if r["id"] == row[2]), None)
                 if selected is None or selected["model"] != row[0] or selected["hardware_version"] != row[1] or selected["region"] != "UN":
@@ -234,6 +241,7 @@ class Application:
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", bufsize=1,
             )
+            self.initialization_only_run = firmware_mode == "initialize"
             self.running, self.log, self.prompt = True, [], None
             db.execute("UPDATE camera_inventory SET status='running',last_run_at=datetime('now') WHERE device_id=?", (device_id,))
         threading.Thread(target=self.collect, args=(device_id,), daemon=True).start()
@@ -262,7 +270,7 @@ class Application:
             self.running, self.prompt = False, None
             self.log.append("Run completed." if code == 0 else "Run stopped. Check camera state before retrying.")
             db.execute("UPDATE camera_inventory SET status=? WHERE device_id=?",
-                       ("verified" if code == 0 else "stopped",device_id))
+                       ("initialized" if code == 0 and getattr(self, "initialization_only_run", False) else "verified" if code == 0 else "stopped",device_id))
 
     def delete_camera(self, device_id):
         with self.lock, closing(sqlite3.connect(self.database)) as db, db:
@@ -325,7 +333,15 @@ def worker(args):
             print(f"Device information read failed ({type(exc).__name__}). Network verification passed.", flush=True)
 
     workflow.configure_network = configure_and_observe
+    initialize_only = workflow.initialize_only
+    def initialize_and_observe(arguments):
+        metadata = initialize_only(arguments)
+        print("GUI_OBSERVATION " + json.dumps(metadata), flush=True)
+        return metadata
+    workflow.initialize_only = initialize_and_observe
     sys.argv = [sys.argv[0],"--inventory",args.inventory,"--config",args.config,"--device-id",args.device_id]
+    if args.initialize_only:
+        sys.argv.append("--initialize-only")
     if args.skip_firmware:
         sys.argv.append("--skip-firmware")
     if args.firmware_file:
@@ -337,6 +353,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--initialize-only", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--firmware-dir", help="Firmware cache folder (default: firmware beside profile)")
     parser.add_argument("--firmware-file", help=argparse.SUPPRESS)
     parser.add_argument("--models", help="Editable model catalog TOML (default: models.toml beside profile)")

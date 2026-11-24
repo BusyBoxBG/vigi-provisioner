@@ -816,8 +816,67 @@ def provision(args):
     print("Provisioning complete. Recovery email was submitted during activation.")
 
 
+def initialize_only(args):
+    """Inventory-bound activation experiment; never enters site or firmware stages."""
+    if not args.inventory or not re.fullmatch(r"[0-9A-F]{17}", (args.device_id or "").upper()):
+        raise ProvisioningError("Initialization-only requires inventory and a scanned Device ID.")
+    device_id = args.device_id.upper()
+    uri = Path(args.inventory).resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True)) as db:
+        row = db.execute("SELECT model,mac_address,hardware_version,label_serial FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
+    if row is None or row[0] not in {"VIGI C320I", "VIGI C340S"}:
+        raise ProvisioningError("Initialization-only is limited to the inspected C320I/C340S activation flows.")
+    from .vigi_discovery import decode_device_id
+    devices = discover(local_ip=SOURCE_IP, timeout=5)
+    at_ip = [d for d in devices if d.get("ip") == CAMERA_IP]
+    if not at_ip or any(
+        normalize_mac(d.get("mac", "")) != normalize_mac(row[1])
+        or decode_device_id(d.get("serial")) != device_id
+        or d.get("model") != row[0] or d.get("factory_flag") != 0
+        for d in at_ip
+    ):
+        raise ProvisioningError("Factory discovery did not confirm the inventory MAC, Device ID and model.")
+    print(f"Initialization only: {row[0]}, Device ID {device_id}, MAC {row[1]} at {CAMERA_IP}.", flush=True)
+    print("Firmware upgrade, site settings and network changes are disabled.", flush=True)
+    pin = normalize_sha256_pin(args.pin) if args.pin else approve_observed_pin()
+    camera = CameraHTTPS(pin)
+    confirm_factory(camera)
+    activation_format = detect_activation_format(camera)
+    profile_path = Path(args.config or "provisioning.toml")
+    config = load_provisioning_profile(profile_path) if profile_path.exists() else VigiInitializationConfig()
+    email = config.email
+    if not email:
+        raise ProvisioningError("Recovery email is required in the profile.")
+    password = getpass("New camera admin password: ")
+    if not password or password != getpass("Confirm new password: "):
+        raise ProvisioningError("Matching nonempty passwords are required.")
+    if input(f"Type INITIALIZE {device_id} to activate this camera only: ").strip() != f"INITIALIZE {device_id}":
+        raise ProvisioningError("Initialization cancelled before activation.")
+    confirm_factory(camera)
+    try:
+        camera.post("Factory activation", activation_payload(password, email, config.language, activation_format))
+        path = login(camera, password)
+    except ProvisioningError as exc:
+        raise ProvisioningError(f"Initialization stopped: {exc} Check camera state before another attempt.") from None
+    # Only authenticated reads follow successful activation/login.
+    metadata = {"last_verified_ipv4": CAMERA_IP, "initialization_only": True}
+    try:
+        _, response = camera.post("Read initialized device metadata", {"method": "get", "device_info": {"name": "info"}}, path=path)
+        info = response.get("device_info", {}).get("info", {})
+        metadata.update({"firmware": unquote(info.get("sw_version", "")),
+                         "onvif_model": unquote(info.get("device_model", "")),
+                         "hardware_id": unquote(info.get("hw_version", ""))})
+        print(f"Observed firmware: {metadata['firmware'] or 'unavailable'}; hardware: {metadata['hardware_id'] or 'unavailable'}.", flush=True)
+    except ProvisioningError:
+        print("Device metadata unavailable; authenticated login was verified.", flush=True)
+    print("Initialization complete. Fresh login verified; no firmware, site configuration or network writes sent.", flush=True)
+    print("Recovery email was submitted during activation; independent email readback is not verified.", flush=True)
+    return metadata
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--initialize-only", action="store_true", help="Activate inventory camera and verify login, then stop")
     parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2.0.4"), default="auto",
                         help="Default auto verifies a known factory web-resource signature before activation")
     parser.add_argument("--firmware-file", help="Explicit approved local firmware image, overriding the profile file")
@@ -833,6 +892,11 @@ def main():
     parser.add_argument("--gateway")
     args = parser.parse_args()
     try:
+        if args.initialize_only:
+            if args.firmware_file or any(value is not None for value in (args.mac, args.target_ip, args.prefix, args.gateway)):
+                parser.error("Initialization-only takes identity from inventory and accepts no firmware or network overrides.")
+            initialize_only(args)
+            return
         if args.inventory:
             if any(value is not None for value in (args.mac, args.target_ip, args.prefix, args.gateway)):
                 parser.error("Inventory mode takes its network assignment only from SQLite.")

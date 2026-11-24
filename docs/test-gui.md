@@ -44,3 +44,11 @@ Both choices use automatic activation-format detection. On the tested C320I hard
 ## Model catalog
 
 The model/hardware selector and Camera models and firmware panel use local `models.toml`. See [catalog operations](model-catalog.md). Existing inventory databases receive nullable catalog/hardware columns without rewriting existing records. Keep the local catalog alongside the inventory backup. Firmware-page checks only read official web pages and preserve the recorded firmware choice.
+
+## Initialization-only compatibility tests
+
+Select **Initialize only (no update, settings or IP change)** for the inspected C340S/C320I activation flows. This is an explicit mode, not the default approved-update mode. Inventory Device ID, MAC, model and factory-state discovery must match. The recognized activation resource is fetched through pinned HTTPS before credentials are submitted. Type `INITIALIZE <Device ID>` at the confirmation prompt.
+
+Only account activation (admin password, recovery-email submission and language) and fresh login are performed, followed by an optional authenticated read of device model/hardware/firmware. Regional, date/DST/NTP, alias, video, cloud, OSD, audio, motion, exceptions, network and DNS configuration are not performed. No firmware preparation/upload stage can be entered. Inventory status becomes `initialized`, not `verified`. The desired static address in inventory is left unapplied; the camera remains at the discovered factory address.
+
+The factory-new C340S probe confirmed the printed/inventory/discovery identity and the exact legacy Initial.htm hash. Initialization-only simulations and worker argument checks passed. Real C340S activation is pending. Full provisioning and firmware updates remain blocked for that model until independently tested. No additional model support is inferred from a shared page signature.
