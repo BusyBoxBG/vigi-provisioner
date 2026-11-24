@@ -844,3 +844,7 @@ Downloads selected official firmware ZIPs, validates size and single-image layou
 Standalone staged C340S V1 firmware-upgrade experiment. Holds exact package/image hashes and source/target rules, reads inventory and initialized discovery identity, verifies authenticated ONVIF identity, supports preflight-only by default and a confirmed single upload with target-version polling. It reuses the existing HTTPS login and multipart transport and never runs provisioning or the next upgrade automatically. See [C340S staged upgrade](firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
 
 The C340S module also exposes inspect_latest_image, read_identity and upgrade_stage for the integrated factory workflow. The GUI checks both files before spawning its worker, passes --c340s-bridge-package alongside --firmware-file, and stores prerequisite cache metadata in the model catalog. vigi_firmware_cache.import_c340s_latest implements offline target ZIP import with the known package checks.
+
+## vigi_motion_actions.py
+
+Targets an already-configured inventory camera to disable motion-event processing actions only. It can update the nine action booleans in the local motion profile, verifies authenticated model/MAC (and Device ID where returned), writes only motion_notif_list, then verifies all exposed actions off and unchanged detector/schedule readback. It does not run firmware, network or full provisioning stages. Use --legacy only for the inspected legacy motion read format.

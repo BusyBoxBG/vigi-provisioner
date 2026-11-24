@@ -33,11 +33,11 @@ class LegacyMotionTests(unittest.TestCase):
             return 200, {"motion_detection": {"arming_schedule": self.motion["arming_schedule"]}}
         return 200, {"motion_detection": copy.deepcopy(self.motion)}
 
-    def test_legacy_writes_capture_and_uses_older_table(self):
+    def test_legacy_disables_processing_and_uses_older_table(self):
         original = copy.deepcopy(self.target)
         configure_motion_detection(Mock(post=self.post), "/test", self.target, legacy=True)
         self.assertEqual(self.target, original)
-        self.assertEqual(self.motion["motion_notif_list"]["capture_enabled"], "on")
+        self.assertEqual(self.motion["motion_notif_list"]["capture_enabled"], "off")
         self.assertEqual(self.motion["motion_notif_list"]["record_enabled"], "off")
         write = next(p for p in self.requests if p["method"] == "set")["motion_detection"]
         self.assertNotIn("obj_filter_enabled", write["motion_det"])
@@ -51,3 +51,14 @@ class LegacyMotionTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             configure_motion_detection(Mock(post=self.post), "/test", self.target, legacy=True)
         self.assertTrue(all(p["method"] == "get" for p in self.requests))
+
+    def test_all_off_also_disables_additional_exposed_action_flags(self):
+        self.motion["motion_notif_list"].update(client_enabled="on",app_enabled="on",target_track_enabled="on")
+        configure_motion_detection(Mock(post=self.post), "/test", self.target, legacy=True)
+        self.assertTrue(all(v=="off" for v in self.motion["motion_notif_list"].values()))
+
+    def test_unknown_active_action_stops_before_writes(self):
+        self.motion["motion_notif_list"]["unknown_enabled"] = "on"
+        with self.assertRaises(ProvisioningError):
+            configure_motion_detection(Mock(post=self.post), "/test", self.target, legacy=True)
+        self.assertTrue(all(p["method"]=="get" for p in self.requests))

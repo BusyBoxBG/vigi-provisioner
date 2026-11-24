@@ -389,6 +389,17 @@ def configure_motion_detection(camera, path, target, *, legacy=False):
             return False
 
     actual = read()
+    no_actions = bool(target["motion_notif_list"]) and all(value == "off" for value in target["motion_notif_list"].values())
+    if no_actions:
+        for field in ("client_enabled", "app_enabled", "target_track_enabled"):
+            if field in actual.get("motion_notif_list", {}):
+                target["motion_notif_list"][field] = "off"
+        unknown = [key for key, value in actual.get("motion_notif_list", {}).items()
+                   if key.endswith("_enabled") and key not in target["motion_notif_list"]
+                   and str(value).lower() in {"on", "true", "1"}]
+        if unknown:
+            raise ProvisioningError("Unrecognized active motion processing actions: " + ", ".join(sorted(unknown)))
+        print("All exposed motion processing actions requested off.", flush=True)
     if legacy:
         for section, field in (("motion_det", "obj_filter_enabled"),
                                ("motion_notif_list", "report_server_enabled")):
@@ -403,6 +414,11 @@ def configure_motion_detection(camera, path, target, *, legacy=False):
         actual = read()
     if not matches(actual):
         raise ProvisioningError("Motion configuration or arming schedule readback differs.")
+    if no_actions:
+        if any(key.endswith("_enabled") and str(value).lower() in {"on", "true", "1"}
+               for key, value in actual.get("motion_notif_list", {}).items()):
+            raise ProvisioningError("A motion processing action remains active after readback.")
+        print("Verified motion processing actions: all off.", flush=True)
     print("Verified motion detection and 24/7 schedule; full-image region confirmed.")
 
 

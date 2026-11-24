@@ -79,3 +79,9 @@ Actual firmware selects the settings path, not the activation family or build ye
 Do not upgrade the preserved 2024 reference camera merely to repeat the combined chain. Factory-resetting the upgraded camera retains 3.2.1 and can test the already-installed-target branch, activation and modern provisioning. A fresh older-stock unit would be needed to repeat both real upgrades without consuming the reference unit.
 
 For an offline Ubuntu host, import the already-transferred 3.2.1 ZIP from the C340S catalog row instead of downloading again. Leave the 2.5.1 ZIP at its default home-directory path or pass --c340s-bridge-package. Local browser testing passed both target import and intermediate preparation, preserving the approved 3.2.1 target. No camera upgrade was performed during these GUI preparation tests.
+
+## Motion processing actions
+
+The current shared profile requests motion detection with all local processing actions disabled (`record = false`, `snapshots = false`, and all other notification/action booleans false). The detector, sensitivity, region and arming schedule remain configured. Existing local profiles must be updated; changing the tracked example does not change an ignored site profile.
+
+For the currently configured modern C340S, use `python -m vigi_provisioner.vigi_motion_actions --inventory "$HOME/vigi-test-inventory.sqlite3" --device-id 3B27D0E000E0AF692 --config provisioning.toml --update-profile` with the virtual environment active and `PYTHONPATH=src`. This changes the local profile action flags and applies only action flags on the camera, without resetting it. It verifies that detector and schedule readback are unchanged. No firmware or network writes are made. The detector remains enabled and continuous/NVR recording configuration is outside this change. Actual all-off hardware readback is pending this targeted test.

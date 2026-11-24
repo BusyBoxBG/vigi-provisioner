@@ -148,7 +148,7 @@ vehicles = true
 target_validity = "medium"
 schedule = "24/7"
 record = false
-snapshots = true
+snapshots = false
 push_messages = false
 report_server = false
 email = false
@@ -268,3 +268,5 @@ C340S V1 full GUI provisioning is now available with **Keep existing firmware (n
 The second C340S is reserved for the documented two-stage firmware experiment (2.0.3 → 2.5.1 → 3.2.1). The standalone command defaults to preflight, verifies inspected packages and requires an explicit confirmation per real upload. Both C340S firmware stages passed hardware verification and are now integrated into the GUI, with the combined automatic chain awaiting a live run. See [C340S upgrade experiment](docs/firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
 
 The GUI now joins the tested C340S stages into one approved-update workflow, including the required intermediate 2.5.1 package, target 3.2.1 verification, certificate renewal handling, modern site settings and preferred ONVIF port 80. Already-installed stages are skipped. See [C340S preparation and test limits](docs/test-gui.md#c340s-approved-update-and-provisioning). The full automatic chain still needs its first live GUI run; individual stages passed on hardware.
+
+The current motion profile keeps detection configured while disabling all motion-event processing actions, including recording and snapshot capture. Existing site profiles need their action booleans changed to false; the targeted vigi_motion_actions command updates those flags and applies them to an already-configured camera without resetting or reprovisioning it. See [motion processing actions](docs/test-gui.md#motion-processing-actions).
