@@ -31,7 +31,7 @@ Checking requires Internet access from the GUI host. With an offline Ubuntu inst
 
 ## Provisioning compatibility is separate
 
-Adding a catalog entry does not grant camera-write or upgrade support. GUI provisioning remains restricted to the tested VIGI C320I engine, with known hardware 1.20 (1.2 alias). Existing rows without a recorded hardware revision preserve prior behavior. Other listed models and C320I V1 can be inventoried but require capability testing before provisioning. The existing firmware uploader still enforces its inspected package/checksum/source-version rules. The catalog selects a local approved image for the GUI worker but does not expand upload compatibility. Never select a package solely because its filename resembles another model.
+Adding a catalog entry does not grant camera-write or upgrade support. GUI provisioning is restricted to tested C320I hardware 1.20 (1.2 alias) and C340S hardware V1/1.0 paths. Existing rows without a recorded hardware revision preserve prior behavior. Other listed models and C320I V1 can be inventoried but require capability testing before provisioning. The existing firmware uploader still enforces its inspected package/checksum/source-version rules. The catalog selects a local approved image for the GUI worker but does not expand upload compatibility. Never select a package solely because its filename resembles another model.
 
 ## Python implementation
 
@@ -53,10 +53,20 @@ A 512 MiB ZIP/image size limit and exactly-one-image rule apply. ZIP content is 
 
 Internet access is required only to check or download; previously approved local images can be used offline. Merely adding a camera to inventory does not change the camera. Start provisioning initiates activation and the approved upgrade-before-configuration path. The preserved-stock test camera must use **Keep existing firmware**. The older profile-controlled upgrade option remains available separately.
 
-Downloads and approvals are available for all catalog entries. Actual upgrade/provisioning integration still supports only the tested C320I hardware 1.20 UN, inspected 2.2.1 image and known source-version path. A newer catalog approval or another model does not bypass these limits; the GUI explains an unsupported image before activation.
+Downloads and approvals are available for all catalog entries. Actual upgrades support the inspected C320I hardware 1.20 UN package/source path and C340S V1 UN two-stage route described below. A newer catalog approval or another model does not bypass these limits; the GUI explains an unsupported image before activation.
 
 `vigi_firmware_cache.py` performs bounded official downloads, safe single-image extraction, checksum recording and cache-file validation. It never contacts a camera. Offline cache tests cover successful approval, unchanged previous rows, multiple-image rejection, unselected URLs and altered cached files. An official Cx20I download and GUI approval passed locally with the previously verified image hash; no camera upgrade was performed during this feature test.
 
 The GUI also permits an explicit initialization-only experiment for C340S using the inspected factory activation page. This does not authorize full provisioning or firmware upload; see [initialization-only tests](test-gui.md#initialization-only-compatibility-tests).
 
-C340S V1 can now run the staged-tested full configuration path in Keep existing firmware mode, with authenticated checks for hardware 1.0 and firmware 2.0.3 Build 240412 Rel.42481n before site writes. Its firmware approval/download catalog remains separate from upgrade permission: C340S uploading is still blocked. The first combined GUI cycle is pending.
+C340S V1 can now run the staged-tested full configuration path in Keep existing firmware mode, with authenticated checks for hardware 1.0 and firmware 2.0.3 Build 240412 Rel.42481n before site writes. The preserved-firmware combined GUI cycle passed. Catalog-approved upgrades now use the separately inspected two-stage route; arbitrary catalog packages remain blocked.
+
+## C340S intermediate package
+
+**Prepare intermediate 2.5.1** downloads and verifies the inspected prerequisite ZIP, saves its local path/hash in `bridge_package` and `bridge_sha256`, and leaves the approved default target unchanged. This is a package preparation action and never contacts a camera. The GUI preflights that package and the approved 3.2.1 image before a C340S full update run. See [integrated workflow](test-gui.md#c340s-approved-update-and-provisioning).
+
+### Offline C340S target import
+
+Use **Import local 3.2.1 ZIP** on the C340S V1 model row and enter `/root/vigi-c340s-3.2.1.zip` (or its actual server path). The server copies it to a temporary cache location, checks the exact inspected ZIP and image hashes, then records it as the approved default. No Internet or camera access is involved. This importer supports only the inspected C340S V1 UN 3.2.1 package; arbitrary imports remain unsupported. Failed imports retain the previous default.
+
+For the intermediate package, the existing `/root/vigi-c340s-2.5.1.zip` is sufficient as a checked fallback when launching the GUI as root; override its location with `--c340s-bridge-package`. Online systems can instead use Prepare intermediate 2.5.1. Both package paths are checked before a C340S approved-update worker starts.

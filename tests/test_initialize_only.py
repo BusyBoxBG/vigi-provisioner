@@ -52,7 +52,7 @@ class InitializeOnlyTests(unittest.TestCase):
                 db.execute("INSERT INTO camera_inventory (device_id,mac_address,model,approved_ipv4,prefix_length,gateway_ipv4) VALUES (?,?,?,?,?,?)",
                            (device_id, "30689353CD67", "VIGI C340S", "192.168.0.154", 24, "192.168.0.1"))
             observation = dict(ip="192.168.0.60", mac="30-68-93-53-cd-67", model="VIGI C340S")
-            args = SimpleNamespace(inventory=database, config="profile.toml", device_id=device_id, initialize_only=True, skip_firmware=True, firmware_file=None)
+            args = SimpleNamespace(inventory=database, config="profile.toml", device_id=device_id, initialize_only=True, skip_firmware=True, firmware_file=None, c340s_bridge_package=None)
             def main():
                 import sys
                 self.assertIn("--initialize-only", sys.argv)

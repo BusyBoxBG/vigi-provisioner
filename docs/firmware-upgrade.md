@@ -33,7 +33,7 @@ Sources: [3.2.1 release notes](https://static.tp-link.com/upload/firmware/2026/2
 | bridge | C340S_1.0_en_2.5.1_Build_250327_Rel.67051n_up_boot-signed.bin | e991185eee0c34eb6a532fe343fb8392aa62631968fdbfb43d5c2bf75d4b82c5 | b5268042e1a3abff9039b4fa06f0f816632ad82c579310ac1926f59b295ba2ce |
 | latest | C340S_1.0_en_3.2.1_Build_260320_Rel.22146n_up_boot_signed.bin | 44e06b69c44d96bbd103deba5097bcbd8be4774e500dfc8159dcae65140816a2 | e54840807895ee61eceaf830c6474e90a7c263620278ab16497f6d1617f5cbc4 |
 
-The original official packages and both image hashes were inspected locally. Offline tests cover package/image changes, preflight without upload, forbidden direct old-to-latest upgrades, cancelled confirmation, identity mismatch and target readback. Actual C340S uploads are pending. This is not yet connected to the GUI default-upgrade path. The preserved-firmware GUI continues to require its tested 2.0.3 source; do not use it on intermediate/new firmware until those configuration paths are tested.
+The original official packages and both image hashes were inspected locally. Offline tests cover package/image changes, preflight without upload, forbidden direct old-to-latest upgrades, cancelled confirmation, identity mismatch and target readback. Both C340S stages passed real upload and authenticated target-version verification. Site settings and port-80 static network/DNS configuration then passed on 3.2.1. These tested stages are now integrated into the GUI approved-update path; the combined automatic chain is pending a hardware run.
 
 Example first-stage preflight:
 

@@ -17,7 +17,7 @@ from .vigi_onvif import get_device_information
 from .vigi_discovery import discover, decode_device_id
 from .vigi_onvif_live_transport import SOURCE_IP
 from .vigi_model_catalog import load_catalog, save_catalog, validate_model, check_firmware
-from .vigi_firmware_cache import approve_download, approved_image
+from .vigi_firmware_cache import approve_download, approved_image, import_c340s_latest
 
 PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
 <style>
@@ -43,7 +43,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label>Approved IP address</label><input name="approved_ipv4" value="192.168.0.150" required>
 <label>Netmask or prefix</label><input name="prefix" value="255.255.255.0" required>
 <label>Gateway</label><input name="gateway_ipv4" value="192.168.0.1" required>
-<button>Save inventory</button></form><p><small>Full provisioning: tested C320I hardware 1.20, and C340S V1 with Keep existing firmware. Other models can be recorded for future testing.</small></p></section>
+<button>Save inventory</button></form><p><small>Full provisioning: tested C320I hardware 1.20 and C340S V1. C340S approved updates use the intermediate 2.5.1 stage when needed. Other models can be recorded for future testing.</small></p></section>
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <label for="firmwareMode">Firmware handling</label>
 <select id="firmwareMode" style="width:100%;padding:10px">
@@ -59,6 +59,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <p>Catalog entries describe model, hardware and region. They do not enable untested provisioning or authorize firmware uploads. Checks require Internet access and download only support-page text.</p>
 <button onclick="downloadDefaults()">Download and approve all listed defaults</button>
 <div style="overflow:auto"><table><thead><tr><th>Model / hardware / region</th><th>Default initial update firmware</th><th>Check / sources</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+<form id="importForm" hidden><h3>Import inspected C340S target ZIP</h3><label for="importPackage">ZIP path on the Ubuntu server</label><input id="importPackage" value="/root/vigi-c340s-3.2.1.zip" required><button>Import and approve local default</button><button type="button" onclick="document.getElementById('importForm').hidden=true">Cancel</button></form>
 <form id="approveForm" hidden><h3>Approve default firmware</h3><p id="approveTarget"></p><label for="approveVersion">Version to approve</label><input id="approveVersion" required><button>Confirm default and download</button><button type="button" onclick="document.getElementById('approveForm').hidden=true">Cancel</button></form>
 <details><summary>Add or edit model</summary><form id="modelForm">
 <label>Catalog ID (reuse an ID to update it)</label><input name="id" required placeholder="vigi-c320i-v1.20">
@@ -95,13 +96,15 @@ async function probe(){try{await api("/api/discover",{});refresh()}catch(e){docu
 async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id,firmware_mode:document.getElementById("firmwareMode").value});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function answer(){try{await api("/api/answer",{id:pending.id,value:document.getElementById("answer").value});document.getElementById("answer").value="";refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function downloadDefaults(){let failures=[];for(let m of catalogModels){if(!m.firmware_url||!m.firmware_version)continue;document.getElementById("modelMessage").textContent="Downloading default for "+m.model+" V"+m.hardware_version+"...";try{await api("/api/model/approve",{id:m.id,url:m.firmware_url,version:m.firmware_version})}catch(e){failures.push(m.id+": "+e.message)}}await loadModels();document.getElementById("modelMessage").textContent=failures.length?"Completed with errors: "+failures.join("; "):"All listed defaults downloaded and approved locally. No cameras upgraded."}
+let importModelId=null;
+document.getElementById("importForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/model/import",{id:importModelId,package:document.getElementById("importPackage").value});document.getElementById("importForm").hidden=true;await loadModels();document.getElementById("modelMessage").textContent="Local C340S target imported and approved; no camera upgraded."}catch(error){document.getElementById("modelMessage").textContent=error.message}};
 let pendingFirmware=null;
 async function approveFirmware(m,url,version){let name=decodeURIComponent(url.split("/").pop()),match=name.match(/_(\d+\.\d+\.\d+)[ _]+Build[ _]+(\d+)/i);pendingFirmware={id:m.id,url:url};document.getElementById("approveTarget").textContent=m.model+" V"+m.hardware_version+" ("+m.region+"): "+name+". Downloads locally; no camera upgrade is started.";document.getElementById("approveVersion").value=version||(match?match[1]+" Build "+match[2]:"");document.getElementById("approveForm").hidden=false;document.getElementById("approveForm").scrollIntoView({block:"center"})}
 document.getElementById("approveForm").onsubmit=async e=>{e.preventDefault();if(!pendingFirmware)return;document.getElementById("modelMessage").textContent="Downloading firmware ZIP and preparing approved local image...";try{await api("/api/model/approve",{...pendingFirmware,version:document.getElementById("approveVersion").value});document.getElementById("approveForm").hidden=true;pendingFirmware=null;await loadModels();document.getElementById("modelMessage").textContent="Default approved firmware downloaded. Camera upgrade still checks supported model, hardware and image."}catch(error){document.getElementById("modelMessage").textContent=error.message}};
 let catalogModels=[];
 function chooseModel(){let m=catalogModels.find(x=>x.id===document.getElementById("catalogChoice").value);if(m){document.getElementById("cameraModel").value=m.model;document.getElementById("cameraHardware").value=m.hardware_version}}
 function sourceLink(parent,url,label){if(!url)return;let a=document.createElement("a");a.href=url;a.textContent=label;a.target="_blank";a.rel="noopener noreferrer";parent.append(a,document.createElement("br"))}
-async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Default ZIP");let cached=document.createElement("div");cached.textContent=m.approved_image?"Approved local image: "+m.approved_image:"Not downloaded / not approved";recorded.append(cached);let download=document.createElement("button");download.textContent="Download and approve default";download.disabled=!m.firmware_url;download.onclick=()=>approveFirmware(m,m.firmware_url,m.firmware_version);recorded.append(download);row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Choose a candidate to download and approve; the current default was not changed."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates){sourceLink(details,url,decodeURIComponent(url.split("/").pop()));let approve=document.createElement("button");approve.textContent="Use as default and download";approve.onclick=()=>approveFirmware(m,url,"");details.append(approve)}actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
+async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Default ZIP");let cached=document.createElement("div");cached.textContent=m.approved_image?"Approved local image: "+m.approved_image:"Not downloaded / not approved";recorded.append(cached);let download=document.createElement("button");download.textContent="Download and approve default";download.disabled=!m.firmware_url;download.onclick=()=>approveFirmware(m,m.firmware_url,m.firmware_version);recorded.append(download);if(m.model==="VIGI C340S"){let local=document.createElement("button");local.textContent="Import local 3.2.1 ZIP";local.onclick=()=>{importModelId=m.id;document.getElementById("importForm").hidden=false;document.getElementById("importForm").scrollIntoView({block:"center"})};recorded.append(local);let bridge=document.createElement("button");bridge.textContent="Prepare intermediate 2.5.1";bridge.onclick=async()=>{document.getElementById("modelMessage").textContent="Preparing intermediate firmware...";try{await api("/api/model/bridge",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Intermediate 2.5.1 prepared; default target unchanged."}catch(e){document.getElementById("modelMessage").textContent=e.message}};recorded.append(bridge);if(m.bridge_package){let note=document.createElement("div");note.textContent="Intermediate ZIP: "+m.bridge_package;recorded.append(note)}}row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Choose a candidate to download and approve; the current default was not changed."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates){sourceLink(details,url,decodeURIComponent(url.split("/").pop()));let approve=document.createElement("button");approve.textContent="Use as default and download";approve.onclick=()=>approveFirmware(m,url,"");details.append(approve)}actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
 document.getElementById("modelForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/model/save",Object.fromEntries(new FormData(e.target)));await loadModels()}catch(error){document.getElementById("modelMessage").textContent=error.message}};
 loadModels();refresh();setInterval(refresh,1000);
 </script></body></html>"""
@@ -213,8 +216,8 @@ class Application:
                 if row is None or row[0] not in {"VIGI C320I", "VIGI C340S"}:
                     raise ValueError("Initialization-only currently supports the inspected C320I/C340S flows.")
             elif row and row[0] == "VIGI C340S":
-                if firmware_mode != "preserve" or (row[1] and row[1] not in {"1", "1.0"}):
-                    raise ValueError("C340S V1 currently supports full provisioning only with Keep existing firmware selected. Firmware upgrades remain blocked.")
+                if firmware_mode not in {"preserve", "approved"} or (row[1] and row[1] not in {"1", "1.0"}):
+                    raise ValueError("C340S V1 supports Keep existing firmware or catalog-approved updating; profile-controlled updating is not supported.")
             elif row is None or row[0] != "VIGI C320I" or (row[1] and row[1] not in ("1.20", "1.2")):
                 raise ValueError("Provisioning is currently tested for VIGI C320I hardware 1.20. Other entries are inventory-only.")
             firmware_args = []
@@ -228,12 +231,19 @@ class Application:
                     raise ValueError("Link this camera to its exact catalog model/hardware before approved-firmware provisioning.")
                 image = approved_image(selected, self.firmware_dir)
                 # Catalog approval never bypasses the existing inspected-image restriction.
-                from .vigi_firmware_upgrade import inspect_firmware
                 try:
-                    inspect_firmware(image)
+                    if row[0] == "VIGI C340S":
+                        from .vigi_c340s_upgrade import inspect_latest_image, inspect_package, STAGES
+                        inspect_latest_image(image)
+                        bridge = Path(selected.get("bridge_package") or self.bridge_package)
+                        inspect_package(bridge, STAGES["bridge"])
+                        firmware_args = ["--c340s-bridge-package", str(bridge)]
+                    else:
+                        from .vigi_firmware_upgrade import inspect_firmware
+                        inspect_firmware(image)
                 except Exception as exc:
                     raise ValueError(f"Approved image is cached, but this upgrade engine does not support it: {exc}") from None
-                firmware_args = ["--firmware-file", str(image)]
+                firmware_args += ["--firmware-file", str(image)]
                 allow_firmware_upgrade = True
             elif firmware_mode is not None:
                 allow_firmware_upgrade = firmware_mode == "profile"
@@ -354,6 +364,8 @@ def worker(args):
         sys.argv.append("--skip-firmware")
     if args.firmware_file:
         sys.argv.extend(["--firmware-file", args.firmware_file])
+    if args.c340s_bridge_package:
+        sys.argv.extend(["--c340s-bridge-package", args.c340s_bridge_package])
     workflow.main()
 
 
@@ -362,6 +374,7 @@ def main():
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--config", required=True)
     parser.add_argument("--initialize-only", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--c340s-bridge-package", help="Intermediate C340S ZIP; defaults to ~/vigi-c340s-2.5.1.zip")
     parser.add_argument("--firmware-dir", help="Firmware cache folder (default: firmware beside profile)")
     parser.add_argument("--firmware-file", help=argparse.SUPPRESS)
     parser.add_argument("--models", help="Editable model catalog TOML (default: models.toml beside profile)")
@@ -391,6 +404,7 @@ def main():
     load_catalog(catalog_path)
     app = Application(database,config)
     app.catalog_path = catalog_path
+    app.bridge_package = str(Path(args.c340s_bridge_package or Path.home() / "vigi-c340s-2.5.1.zip").resolve())
     app.firmware_dir = Path(args.firmware_dir).resolve() if args.firmware_dir else Path(config).with_name("firmware")
 
     class Handler(BaseHTTPRequestHandler):
@@ -451,6 +465,46 @@ def main():
                             row["last_checked"] = ""
                             row["check_status"] = "Edited; check official page again."
                         save_catalog(catalog_path, [r for r in rows if r["id"] != row["id"]] + [row])
+                elif self.path == "/api/model/import":
+                    with app.lock:
+                        if app.running or app.probing:
+                            raise ValueError("Wait for active operations before importing firmware.")
+                        rows = load_catalog(catalog_path)
+                        original = next((r for r in rows if r["id"] == data["id"]), None)
+                    if original is None:
+                        raise ValueError("Model catalog entry not found.")
+                    try:
+                        approved = import_c340s_latest(original, data["package"], app.firmware_dir)
+                    except Exception as exc:
+                        raise ValueError(f"Local firmware import failed: {exc}. Previous default unchanged.") from None
+                    with app.lock:
+                        rows = load_catalog(catalog_path)
+                        if app.running or next((r for r in rows if r["id"] == data["id"]), None) != original:
+                            raise ValueError("Catalog changed during import. Retry.")
+                        save_catalog(catalog_path, [approved if r["id"] == data["id"] else r for r in rows])
+                elif self.path == "/api/model/bridge":
+                    with app.lock:
+                        if app.running or app.probing:
+                            raise ValueError("Wait for active operations before preparing firmware.")
+                        rows = load_catalog(catalog_path)
+                        original = next((r for r in rows if r["id"] == data["id"]), None)
+                    if original is None or original["model"] != "VIGI C340S" or original["hardware_version"] not in {"1", "1.0"} or original["region"] != "UN":
+                        raise ValueError("The inspected intermediate package is for C340S V1 UN only.")
+                    bridge_url = "https://static.tp-link.com/upload/firmware/2025/202504/20250418/VIGI%20C340S(UN)_V1_2.5.1%20Build%20250327%20Rel.67051n.zip"
+                    temporary_row = dict(original)
+                    temporary_row["available_firmware_urls"] = list(original["available_firmware_urls"]) + [bridge_url]
+                    try:
+                        cached = approve_download(temporary_row, bridge_url, "2.5.1 Build 250327", app.firmware_dir)
+                        from .vigi_c340s_upgrade import inspect_package, STAGES
+                        inspect_package(cached["approved_zip"], STAGES["bridge"])
+                    except Exception as exc:
+                        raise ValueError(f"Intermediate firmware preparation failed: {exc}") from None
+                    with app.lock:
+                        rows = load_catalog(catalog_path)
+                        if app.running or next((r for r in rows if r["id"] == data["id"]), None) != original:
+                            raise ValueError("Catalog changed during preparation. Retry.")
+                        updated = dict(original, bridge_package=cached["approved_zip"], bridge_sha256=cached["approved_zip_sha256"])
+                        save_catalog(catalog_path, [updated if r["id"] == data["id"] else r for r in rows])
                 elif self.path == "/api/model/approve":
                     with app.lock:
                         if app.running or app.probing:

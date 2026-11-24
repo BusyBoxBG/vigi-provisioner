@@ -90,3 +90,34 @@ def approved_image(row, root):
     if digest != row["approved_sha256"]:
         raise ValueError("Approved firmware file checksum changed. Download and approve again.")
     return file
+
+
+def import_c340s_latest(row, package, root):
+    """Import the already-inspected target ZIP from local disk, without Internet."""
+    from .vigi_c340s_upgrade import inspect_package, STAGES
+    import shutil
+    row = validate_model(row)
+    if row["model"] != "VIGI C340S" or row["hardware_version"] not in {"1", "1.0"} or row["region"] != "UN":
+        raise ValueError("Local import currently supports the inspected C340S V1 UN target only.")
+    source = Path(package).expanduser().resolve()
+    if source.stat().st_size > MAX_ZIP:
+        raise ValueError("Firmware ZIP exceeds size limit.")
+    root = Path(root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    stage = STAGES["latest"]
+    with tempfile.TemporaryDirectory(prefix="import-", dir=root) as temporary:
+        archive = Path(temporary) / "firmware.zip"
+        shutil.copyfile(source, archive)
+        image = inspect_package(archive, stage)
+        destination = root / row["id"] / stage.zip_sha256
+        destination.mkdir(parents=True, exist_ok=True)
+        local_image = Path(temporary) / stage.filename
+        local_image.write_bytes(image)
+        os.replace(local_image, destination / stage.filename)
+        os.replace(archive, destination / "firmware.zip")
+    row.update(firmware_url="https://static.tp-link.com/upload/firmware/2026/202605/20260512/VIGI%20C340S(UN)%201.0_3.2.1%20Build%20260320.zip",
+               firmware_version=stage.target,
+               approved_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+               approved_image=str(destination / stage.filename), approved_sha256=stage.image_sha256,
+               approved_zip=str(destination / "firmware.zip"), approved_zip_sha256=stage.zip_sha256)
+    return row

@@ -47,3 +47,21 @@ class GuiFirmwareModeTests(unittest.TestCase):
                 command = launch.call_args.args[0]
                 self.assertEqual(command[command.index("--firmware-file") + 1], str(image))
                 self.assertNotIn("--skip-firmware", command)
+
+    def test_c340s_approved_mode_forwards_intermediate_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = str(Path(directory) / "inventory.sqlite3")
+            initialize_inventory(database)
+            with closing(sqlite3.connect(database)) as db, db:
+                db.execute("INSERT INTO camera_inventory (device_id,mac_address,model,hardware_version,catalog_id,approved_ipv4,prefix_length,gateway_ipv4) VALUES (?,?,?,?,?,?,?,?)",
+                           ("TEST", "30689353CC93", "VIGI C340S", "1", "c340s-v1", "192.168.0.161", 24, "192.168.0.1"))
+            app = Application(database, "profile.toml")
+            app.catalog_path, app.firmware_dir = "catalog.toml", directory
+            model = dict(id="c340s-v1", model="VIGI C340S", hardware_version="1", region="UN", bridge_package="bridge.zip")
+            image = Path(directory) / "approved.bin"
+            with patch("vigi_provisioner.vigi_test_gui.load_catalog", return_value=[model]), patch("vigi_provisioner.vigi_test_gui.approved_image", return_value=image), patch("vigi_provisioner.vigi_c340s_upgrade.inspect_latest_image"), patch("vigi_provisioner.vigi_c340s_upgrade.inspect_package") as inspect, patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch, patch("vigi_provisioner.vigi_test_gui.threading.Thread"):
+                app.start("TEST", firmware_mode="approved")
+                command = launch.call_args.args[0]
+                self.assertEqual(command[command.index("--c340s-bridge-package")+1], "bridge.zip")
+                self.assertNotIn("--skip-firmware",command)
+                inspect.assert_called_once()

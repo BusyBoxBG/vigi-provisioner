@@ -54,6 +54,38 @@ def inspect_package(path, stage):
         raise ProvisioningError("Image checksum differs from the inspected firmware.")
     return image
 
+def inspect_latest_image(path):
+    stage = STAGES["latest"]
+    path = Path(path)
+    if path.name != stage.filename or path.stat().st_size > 512 * 1024 * 1024:
+        raise ProvisioningError("Select the inspected C340S 3.2.1 image.")
+    image = path.read_bytes()
+    if hashlib.sha256(image).hexdigest() != stage.image_sha256:
+        raise ProvisioningError("C340S target image checksum differs.")
+    return image
+
+
+def upgrade_stage(camera, path, password, mac, device_id, stage, image, confirm):
+    info, _ = read_identity(password, mac)
+    current = info.get("FirmwareVersion")
+    if current == stage.target:
+        print(f"Target {stage.target} already installed; stage skipped.", flush=True)
+        return False
+    if current != stage.source:
+        raise ProvisioningError(f"Upgrade stage requires {stage.source}; observed {current}.")
+    confirmation = f"UPGRADE {device_id} TO {stage.target.split()[0]}"
+    if confirm(f"Type {confirmation} to install firmware (downgrade may be unavailable): ").strip() != confirmation:
+        raise ProvisioningError("Confirmation did not match. No upload sent.")
+    fresh, _ = read_identity(password, mac)
+    if fresh.get("FirmwareVersion") != stage.source:
+        raise ProvisioningError("Source firmware changed during confirmation. No upload sent.")
+    print(f"Starting C340S upgrade to {stage.target}. Keep power and Ethernet connected.", flush=True)
+    _, result = camera.post("Request firmware upload URL", {"method": "do", "system": {"firmware_upgrade": {"type": "0"}}}, path=path)
+    upload_file(camera, path, upload_uri(result), image, stage.filename)
+    wait_for_target(password, mac, stage)
+    return True
+
+
 def inventory_camera(database, device_id):
     uri = Path(database).resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
@@ -75,7 +107,7 @@ def confirm_discovery(device_id, mac):
         raise ProvisioningError("Discovery reported conflicting camera identity.")
 
 def read_identity(password, mac):
-    for port in (2020, 80):
+    for port in (80, 2020):
         endpoint = f"http://{CAMERA}:{port}/onvif/device_service"
         try:
             info = get_device_information(endpoint, "admin", password)

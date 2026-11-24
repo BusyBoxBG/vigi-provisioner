@@ -842,3 +842,5 @@ Downloads selected official firmware ZIPs, validates size and single-image layou
 ## vigi_c340s_upgrade.py
 
 Standalone staged C340S V1 firmware-upgrade experiment. Holds exact package/image hashes and source/target rules, reads inventory and initialized discovery identity, verifies authenticated ONVIF identity, supports preflight-only by default and a confirmed single upload with target-version polling. It reuses the existing HTTPS login and multipart transport and never runs provisioning or the next upgrade automatically. See [C340S staged upgrade](firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
+
+The C340S module also exposes inspect_latest_image, read_identity and upgrade_stage for the integrated factory workflow. The GUI checks both files before spawning its worker, passes --c340s-bridge-package alongside --firmware-file, and stores prerequisite cache metadata in the model catalog. vigi_firmware_cache.import_c340s_latest implements offline target ZIP import with the known package checks.

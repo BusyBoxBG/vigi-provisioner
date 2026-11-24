@@ -54,3 +54,16 @@ class FirmwareCacheTests(unittest.TestCase):
 
     def test_version_from_filename(self):
         self.assertEqual(version_from_url(self.row["firmware_url"]), "2.2.1 Build 260605")
+
+    def test_local_c340s_import_rejects_changed_package_without_approval(self):
+        from vigi_provisioner.vigi_firmware_cache import import_c340s_latest
+        from vigi_provisioner.vigi_factory_workflow import ProvisioningError
+        row = next(r for r in load_catalog(Path(__file__).resolve().parents[1]/"models.example.toml") if r["id"] == "vigi-c340s-v1")
+        original = copy.deepcopy(row)
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory)/"changed.zip"
+            package.write_bytes(b"changed package")
+            with self.assertRaisesRegex(ProvisioningError, "ZIP checksum"):
+                import_c340s_latest(row,package,Path(directory)/"cache")
+            self.assertEqual(row,original)
+            self.assertFalse(list((Path(directory)/"cache").rglob("*.bin")))

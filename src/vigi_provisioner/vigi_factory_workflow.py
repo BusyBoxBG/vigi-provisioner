@@ -1,4 +1,4 @@
-"""Provision one factory-state VIGI C320I using the tested lab workflow."""
+"""Provision inspected C320I and C340S factory-state paths using the lab workflow."""
 
 import argparse
 import base64
@@ -94,6 +94,7 @@ def confirm_factory(camera):
 
 # Exact resources inspected from factory-state HAR captures. Unknown builds stop.
 ACTIVATION_RESOURCES = (
+    ("/index.d6a35dd0.js", "e62d34449bab77ee22e1256864de71d9a50dfa191639bff2d1f24482fc3e59e3", "modern"),
     ("/pc/Initial.htm", "170a83d3dc6bde88c886b5aab43b4a6a78f733a23ab3a6fc837c13341bb291e3", "legacy-2024"),
     ("/index.f129addb.js", "7d8169187aa8feb9fbb9a0aa77641e29c58989a92854db773688ca5617ffba33", "modern"),
 )
@@ -682,8 +683,6 @@ def pin_after_network_move(camera_ip, original_pin, *, independently_verified):
 def provision(args):
     inventory = load_inventory_details(args.inventory, args.device_id) if args.inventory else None
     expected_model = inventory["model"] if inventory else "VIGI C320I"
-    if expected_model == "VIGI C340S" and not getattr(args, "skip_firmware", False):
-        raise ProvisioningError("C340S full provisioning currently requires firmware upgrading disabled (--skip-firmware).")
     profile_path = Path(args.config or "provisioning.toml")
     profile = (
         load_provisioning_profile(profile_path)
@@ -698,7 +697,14 @@ def provision(args):
     skip_firmware = getattr(args, "skip_firmware", False)
     if skip_firmware:
         print("Firmware upgrade disabled for this run.", flush=True)
-    if config.firmware_file is not None and not skip_firmware:
+    bridge_package = Path(getattr(args, "c340s_bridge_package", None) or Path.home() / "vigi-c340s-2.5.1.zip")
+    if expected_model == "VIGI C340S" and not skip_firmware:
+        from .vigi_c340s_upgrade import inspect_package, inspect_latest_image, STAGES
+        if not config.firmware_file:
+            raise ProvisioningError("C340S updating requires an approved 3.2.1 image and intermediate 2.5.1 ZIP.")
+        inspect_latest_image(config.firmware_file)
+        inspect_package(bridge_package, STAGES["bridge"])
+    if expected_model != "VIGI C340S" and config.firmware_file is not None and not skip_firmware:
         from .vigi_firmware_upgrade import inspect_firmware
         try:
             inspect_firmware(config.firmware_file)
@@ -768,8 +774,6 @@ def provision(args):
     if activation_format == "auto":
         activation_format = detect_activation_format(camera)
 
-    if expected_model == "VIGI C340S" and activation_format != "legacy-2024":
-        raise ProvisioningError("C340S provisioning currently supports the inspected legacy-2024 activation flow only.")
     print(f"Camera {mac} at {CAMERA_IP} will move to {target}/{args.prefix}, gateway {gateway['gateway']}.")
     if input(f"Confirm {target} is unused and reserved for this camera by typing it: ").strip() != target:
         raise ProvisioningError("Confirmation did not match. No settings written.")
@@ -786,17 +790,38 @@ def provision(args):
 
     try:
         path = login(camera, password)
+        c340s_legacy, c340s_port = False, None
         if expected_model == "VIGI C340S":
-            from .vigi_onvif import get_device_information
-            endpoint = f"http://{CAMERA_IP}:2020/onvif/device_service"
-            selected_interface(endpoint, password, mac)
-            info = get_device_information(endpoint, USERNAME, password)
-            if (info.get("Model") != "VIGI C340S"
-                    or info.get("HardwareId") not in {"1", "1.0"}
-                    or info.get("FirmwareVersion") != "2.0.3 Build 240412 Rel.42481n"):
-                raise ProvisioningError("C340S model/hardware/firmware differs from the staged configuration test. No site or network settings sent.")
-            print("Verified C340S hardware 1.0, firmware 2.0.3 Build 240412; preserving firmware.", flush=True)
-        if config.firmware_file is not None and not skip_firmware:
+            from .vigi_c340s_upgrade import read_identity, inspect_package, inspect_latest_image, upgrade_stage, STAGES, SOURCE
+            info, c340s_port = read_identity(password, compact_mac)
+            current = info.get("FirmwareVersion")
+            if current not in {SOURCE, STAGES["bridge"].target, STAGES["latest"].target}:
+                raise ProvisioningError("C340S firmware is outside the inspected paths. No site or network settings sent.")
+            if not skip_firmware:
+                for name in ("bridge", "latest"):
+                    info, c340s_port = read_identity(password, compact_mac)
+                    current = info.get("FirmwareVersion")
+                    if current == STAGES["latest"].target:
+                        print("C340S approved target already installed. Remaining upgrades skipped.", flush=True)
+                        break
+                    if name == "bridge" and current == STAGES["bridge"].target:
+                        print("C340S intermediate firmware already installed; bridge skipped.", flush=True)
+                        continue
+                    stage = STAGES[name]
+                    image = inspect_package(bridge_package, stage) if name == "bridge" else inspect_latest_image(config.firmware_file)
+                    upgraded = upgrade_stage(camera, path, password, compact_mac, args.device_id, stage, image, input)
+                    if upgraded:
+                        pin = pin_after_network_move(CAMERA_IP, pin, independently_verified=args.pin is not None)
+                        camera = CameraHTTPS(pin)
+                        path = login(camera, password)
+                info, c340s_port = read_identity(password, compact_mac)
+                if info.get("FirmwareVersion") != STAGES["latest"].target:
+                    raise ProvisioningError("C340S approved target was not verified. No site settings sent.")
+            elif current == STAGES["bridge"].target:
+                raise ProvisioningError("Site configuration on intermediate 2.5.1 is untested. Choose approved updating to finish the route.")
+            c340s_legacy = info.get("FirmwareVersion") == SOURCE
+            print(f"Verified C340S firmware {info.get('FirmwareVersion')}; configuration schema: {'legacy' if c340s_legacy else 'modern'}; ONVIF port {c340s_port}.", flush=True)
+        elif config.firmware_file is not None and not skip_firmware:
             from .vigi_firmware_upgrade import upgrade_after_activation
             try:
                 upgraded = upgrade_after_activation(
@@ -816,8 +841,8 @@ def provision(args):
                 path = login(camera, password)
         if alias is not None:
             configure_device_alias(camera, path, alias)
-        legacy_settings = (activation_format == "legacy-2024"
-                           and (skip_firmware or config.firmware_file is None))
+        legacy_settings = (c340s_legacy if expected_model == "VIGI C340S" else
+                           activation_format == "legacy-2024" and (skip_firmware or config.firmware_file is None))
         configure_region(camera, path, config, legacy_clock=legacy_settings)
         if config.video is not None:
             configure_video(camera, path, config.video)
@@ -831,7 +856,7 @@ def provision(args):
             configure_motion_detection(camera, path, config.motion_detection, legacy=legacy_settings)
         if config.login_error is not None:
             configure_login_error(camera, path, config.login_error)
-        plan["onvif_port"] = 2020 if legacy_settings else 80
+        plan["onvif_port"] = c340s_port if expected_model == "VIGI C340S" else 2020 if legacy_settings else 80
         configure_network(plan, password)
         if config.dns is not None:
             dns_pin = pin_after_network_move(
@@ -914,6 +939,7 @@ def main():
     parser.add_argument("--initialize-only", action="store_true", help="Activate inventory camera and verify login, then stop")
     parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2024", "legacy-2.0.4"), default="auto",
                         help="Default auto verifies a known factory web-resource signature before activation")
+    parser.add_argument("--c340s-bridge-package", help="Inspected C340S 2.5.1 ZIP; defaults to ~/vigi-c340s-2.5.1.zip")
     parser.add_argument("--firmware-file", help="Explicit approved local firmware image, overriding the profile file")
     parser.add_argument("--skip-firmware", action="store_true",
                         help="Skip firmware inspection and upgrade even when enabled in the profile")
