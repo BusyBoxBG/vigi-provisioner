@@ -16,6 +16,7 @@ from .vigi_pin_inventory import normalize_mac
 from .vigi_onvif import get_device_information
 from .vigi_discovery import discover
 from .vigi_onvif_live_transport import SOURCE_IP
+from .vigi_model_catalog import load_catalog, save_catalog, validate_model, check_firmware
 
 PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>VIGI Provisioner</title>
 <style>
@@ -35,7 +36,9 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
 <label>Label serial number</label><input name="label_serial" required>
-<label>Model</label><input name="model" value="VIGI C320I" required>
+<label>Catalog model / hardware</label><select id="catalogChoice" name="catalog_id" onchange="chooseModel()" style="width:100%;padding:10px"><option value="">Manual entry / not linked</option></select>
+<label>Model</label><input id="cameraModel" name="model" value="VIGI C320I" required>
+<label>Hardware version</label><input id="cameraHardware" name="hardware_version" placeholder="1.20">
 <label>Approved IP address</label><input name="approved_ipv4" value="192.168.0.150" required>
 <label>Netmask or prefix</label><input name="prefix" value="255.255.255.0" required>
 <label>Gateway</label><input name="gateway_ipv4" value="192.168.0.1" required>
@@ -49,14 +52,26 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <button id="start" onclick="start()">Start provisioning</button><p id="message" role="status"></p></section>
 <section><div id="prompt" hidden>
 <label id="question"></label><input id="answer" autocomplete="off"><button onclick="answer()">Confirm / Continue</button></div>
-<h2>Provisioning steps</h2><pre id="log"></pre></section></div></div></main>
+<h2>Provisioning steps</h2><pre id="log"></pre></section></div></div><section><h2>Camera models and firmware</h2>
+<p>Catalog entries describe model, hardware and region. They do not enable untested provisioning or authorize firmware uploads. Checks require Internet access and download only support-page text.</p>
+<div style="overflow:auto"><table><thead><tr><th>Model / hardware / region</th><th>Recorded firmware</th><th>Check / sources</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+<details><summary>Add or edit model</summary><form id="modelForm">
+<label>Catalog ID (reuse an ID to update it)</label><input name="id" required placeholder="vigi-c320i-v1.20">
+<label>Model</label><input name="model" required placeholder="VIGI C320I">
+<label>Hardware version</label><input name="hardware_version" required placeholder="1.20">
+<label>Region</label><input name="region" required value="UN">
+<label>Official firmware support page</label><input name="support_url" type="url" required>
+<label>Recorded firmware version</label><input name="firmware_version">
+<label>Recorded firmware ZIP URL</label><input name="firmware_url" type="url">
+<button>Save model</button></form></details><p id="modelMessage" role="status"></p></section>
+</main>
 <script>
 const token="__TOKEN__";let pending=null;
 async function api(path,data){let r=await fetch(path,{method:data?"POST":"GET",headers:{"Content-Type":"application/json","X-GUI-Token":token},body:data?JSON.stringify(data):undefined});let j=await r.json();if(!r.ok)throw Error(j.error);return j}
 function cell(row,text){let td=document.createElement("td");td.textContent=text;row.append(td)}
 async function refresh(){try{let s=await api("/api/state");document.getElementById("log").textContent=s.log.join("\n");document.getElementById("start").disabled=s.running;document.getElementById("firmwareMode").disabled=s.running;
 let table=document.getElementById("rows");let selected=document.querySelector("input[name=selected]:checked")?.value;table.replaceChildren();
-for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"unverified");
+for(let c of s.cameras){let row=document.createElement("tr"),td=document.createElement("td"),radio=document.createElement("input");radio.type="radio";radio.name="selected";radio.value=c.device_id;radio.checked=c.device_id===selected;td.append(radio);row.append(td);cell(row,c.device_id+" / "+c.mac_address);cell(row,c.model+(c.hardware_version?" V"+c.hardware_version:"")+" / "+(c.firmware||"unobserved"));let serialCell=document.createElement("td");let serialText=document.createElement("span");serialText.textContent=(c.label_serial||"Not entered")+" / "+c.approved_ipv4+"/"+c.prefix_length;serialCell.append(serialText);let edit=document.createElement("button");edit.textContent="Edit serial";edit.disabled=s.running;edit.onclick=async()=>{let value=prompt("Label serial number",c.label_serial||"");if(value===null)return;try{await api("/api/serial",{device_id:c.device_id,label_serial:value});refresh()}catch(e){document.getElementById("message").textContent=e.message}};serialCell.append(edit);row.append(serialCell);cell(row,c.status||"unverified");
 let actions=document.createElement("td"),remove=document.createElement("button");
 remove.textContent="Delete";remove.style.background="#a33838";remove.disabled=s.running;
 remove.onclick=async()=>{
@@ -74,7 +89,12 @@ document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await a
 async function probe(){try{await api("/api/discover",{});refresh()}catch(e){document.getElementById("probeStatus").textContent=e.message}}
 async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id,allow_firmware_upgrade:document.getElementById("firmwareMode").value==="profile"});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function answer(){try{await api("/api/answer",{id:pending.id,value:document.getElementById("answer").value});document.getElementById("answer").value="";refresh()}catch(e){document.getElementById("message").textContent=e.message}}
-refresh();setInterval(refresh,1000);
+let catalogModels=[];
+function chooseModel(){let m=catalogModels.find(x=>x.id===document.getElementById("catalogChoice").value);if(m){document.getElementById("cameraModel").value=m.model;document.getElementById("cameraHardware").value=m.hardware_version}}
+function sourceLink(parent,url,label){if(!url)return;let a=document.createElement("a");a.href=url;a.textContent=label;a.target="_blank";a.rel="noopener noreferrer";parent.append(a,document.createElement("br"))}
+async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Recorded ZIP");row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Review listed candidates; recorded firmware was not replaced."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates)sourceLink(details,url,decodeURIComponent(url.split("/").pop()));actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
+document.getElementById("modelForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/model/save",Object.fromEntries(new FormData(e.target)));await loadModels()}catch(error){document.getElementById("modelMessage").textContent=error.message}};
+loadModels();refresh();setInterval(refresh,1000);
 </script></body></html>"""
 
 
@@ -86,6 +106,7 @@ def initialize_inventory(path):
             prefix_length INTEGER NOT NULL, gateway_ipv4 TEXT NOT NULL)""")
         existing = {row[1] for row in db.execute("PRAGMA table_info(camera_inventory)")}
         for name, declaration in {
+            "catalog_id": "TEXT", "hardware_version": "TEXT",
             "label_serial": "TEXT", "firmware": "TEXT", "status": "TEXT DEFAULT 'unverified'",
             "observed_metadata": "TEXT", "last_run_at": "TEXT",
         }.items():
@@ -110,9 +131,10 @@ def save_camera(path, data):
         raise ValueError("Label serial and model are required.")
     with closing(sqlite3.connect(path)) as db, db:
         db.execute("""INSERT INTO camera_inventory
-            (device_id,mac_address,label_serial,model,approved_ipv4,prefix_length,gateway_ipv4,status)
-            VALUES (?,?,?,?,?,?,?,'unverified')""",
-            (device_id,mac,serial,model,str(interface.ip),interface.network.prefixlen,str(gateway)))
+            (device_id,mac_address,label_serial,model,approved_ipv4,prefix_length,gateway_ipv4,status,catalog_id,hardware_version)
+            VALUES (?,?,?,?,?,?,?,'unverified',?,?)""",
+            (device_id,mac,serial,model,str(interface.ip),interface.network.prefixlen,str(gateway),
+             data.get("catalog_id") or None, data.get("hardware_version", "").strip() or None))
 
 
 class Application:
@@ -176,9 +198,9 @@ class Application:
         with self.lock, closing(sqlite3.connect(self.database)) as db, db:
             if self.running or self.probing:
                 raise ValueError("Wait for discovery or provisioning to finish.")
-            row = db.execute("SELECT model FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
-            if row is None or row[0] != "VIGI C320I":
-                raise ValueError("Select a VIGI C320I inventory record for this test engine.")
+            row = db.execute("SELECT model,hardware_version FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
+            if row is None or row[0] != "VIGI C320I" or (row[1] and row[1] not in ("1.20", "1.2")):
+                raise ValueError("Provisioning is currently tested for VIGI C320I hardware 1.20. Other entries are inventory-only.")
             self.process = subprocess.Popen(
                 [sys.executable, "-u", "-m", "vigi_provisioner.vigi_test_gui", "--worker",
                  "--inventory", self.database, "--config", self.config, "--device-id", device_id]
@@ -287,6 +309,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--config", required=True)
+    parser.add_argument("--models", help="Editable model catalog TOML (default: models.toml beside profile)")
     parser.add_argument("--bind", default="127.0.0.1", help="Local IPv4 interface address to serve on")
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--worker",action="store_true",help=argparse.SUPPRESS)
@@ -306,6 +329,11 @@ def main():
     from .vigi_initialization_config import load_provisioning_profile
     load_provisioning_profile(config)
     initialize_inventory(database)
+    catalog_path = Path(args.models).resolve() if args.models else Path(config).with_name("models.toml")
+    if not catalog_path.exists():
+        example = Path(__file__).resolve().parents[2] / "models.example.toml"
+        save_catalog(catalog_path, load_catalog(example) if example.exists() else [])
+    load_catalog(catalog_path)
     app = Application(database,config)
 
     class Handler(BaseHTTPRequestHandler):
@@ -350,10 +378,49 @@ def main():
                 if not 0 < size <= 16384:
                     raise ValueError("Invalid request size")
                 data = json.loads(self.rfile.read(size))
-                if self.path == "/api/camera":
+                if self.path == "/api/models":
+                    with app.lock:
+                        rows = load_catalog(catalog_path)
+                    self.reply(200, dict(models=rows, path=str(catalog_path)))
+                    return
+                elif self.path == "/api/model/save":
+                    row = validate_model(data)
+                    with app.lock:
+                        if app.running:
+                            raise ValueError("Wait for provisioning before editing the catalog.")
+                        rows = load_catalog(catalog_path)
+                        previous = next((r for r in rows if r["id"] == row["id"]), None)
+                        if previous:
+                            row["last_checked"] = ""
+                            row["check_status"] = "Edited; check official page again."
+                        save_catalog(catalog_path, [r for r in rows if r["id"] != row["id"]] + [row])
+                elif self.path == "/api/model/check":
+                    with app.lock:
+                        if app.running:
+                            raise ValueError("Wait for provisioning before checking firmware.")
+                        rows = load_catalog(catalog_path)
+                        original = next((r for r in rows if r["id"] == data["id"]), None)
+                    if original is None:
+                        raise ValueError("Model catalog entry not found.")
+                    try:
+                        checked = check_firmware(original)
+                    except Exception as exc:
+                        raise ValueError(f"Firmware check failed ({type(exc).__name__}). Recorded firmware unchanged; check Internet access or inspect the support page.") from None
+                    with app.lock:
+                        rows = load_catalog(catalog_path)
+                        current = next((r for r in rows if r["id"] == data["id"]), None)
+                        if current != original:
+                            raise ValueError("Catalog changed during check. Retry.")
+                        save_catalog(catalog_path, [checked if r["id"] == data["id"] else r for r in rows])
+                elif self.path == "/api/camera":
                     with app.lock:
                         if app.running:
                             raise ValueError("Wait for the active run before editing inventory.")
+                        if data.get("catalog_id"):
+                            selected = next((r for r in load_catalog(catalog_path) if r["id"] == data["catalog_id"]), None)
+                            if selected is None:
+                                raise ValueError("Catalog model not found.")
+                            data["model"], data["hardware_version"] = selected["model"], selected["hardware_version"]
                         save_camera(database,data)
                 elif self.path == "/api/serial":
                     serial = str(data["label_serial"]).strip()

@@ -830,3 +830,7 @@ Local HTTP server with a configurable bind address, inventory form, serial edito
 ### vigi_firmware_upgrade.py
 
 Experimental bench CLI for the identified older-firmware C320I. Checks the exact file checksum and camera identity, requests the local upgrade URL, uploads once through pinned HTTPS, then observes authenticated firmware readback on ONVIF 2020 and 80. [Source](../src/vigi_provisioner/vigi_firmware_upgrade.py)
+
+## vigi_model_catalog.py
+
+Reads and atomically saves the model/hardware/region TOML catalog. Validates official URLs, extracts firmware ZIP links, and checks bounded official support-page responses. Camera inventory linkage is implemented in vigi_test_gui.py. No camera or firmware upload operations are performed. See [catalog details](model-catalog.md).

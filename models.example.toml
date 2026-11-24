@@ -1,0 +1,146 @@
+# Model catalog. Firmware links do not establish tested provisioning or upgrade support.
+schema_version = 1
+
+[[models]]
+id = "vigi-c320i-v1"
+model = "VIGI C320I"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c320i/v1/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2025/202511/20251104/VIGI%20C320I(UN)%201.0_2.1.0%20Build%20251014.zip"
+firmware_version = "2.1.0 Build 251014"
+last_checked = "2026-11-24T07:48:05+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2025/202511/20251104/VIGI C320I(UN) 1.0_2.1.0 Build 251014.zip", "https://static.tp-link.com/upload/firmware/2024/202407/20240717/VIGI C320I(UN)_V1_240620.zip", "https://static.tp-link.com/upload/firmware/2024/202401/20240110/VIGI C320I(UN)_V1.0_231123.zip", "https://static.tp-link.com/upload/firmware/2023/202306/20230613/VIGI C320I(UN)_V1_230524.zip", "https://static.tp-link.com/upload/firmware/2022/202210/20221019/VIGI C320I(UN)_V1_220915.zip", "https://static.tp-link.com/upload/firmware/2022/202210/20221009/VIGI CX20I(UN)_V1_220822.zip"]
+
+[[models]]
+id = "vigi-c320i-v1.20"
+model = "VIGI C320I"
+hardware_version = "1.20"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c320i/v1.20/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202607/20260720/VIGI%20Cx20I(UN)_V1.20_2.2.1%20Build%20260605.zip"
+firmware_version = "2.2.1 Build 260605"
+last_checked = "2026-11-24T07:48:05+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202607/20260720/VIGI Cx20I(UN)_V1.20_2.2.1 Build 260605.zip", "https://static.tp-link.com/upload/firmware/2025/202511/20251108/VIGI C320I(UN) 1.2_2.2.0 Build 250905.zip", "https://static.tp-link.com/upload/firmware/2025/202508/20250820/VIGI C320I (UN) 1.2_2.1.0 Build 250701.zip", "https://static.tp-link.com/upload/firmware/2024/202411/20241127/VIGI C320I(UN)_V1.20_241101.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240507/VIGI C320I(UN)_V1.20_2.0.2 Build 240410.zip"]
+
+[[models]]
+id = "vigi-c420i-v1"
+model = "VIGI C420I"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c420i/v1/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2025/202511/20251104/VIGI%20C420I(UN)%201.0_2.1.0%20Build%20251014.zip"
+firmware_version = "2.1.0 Build 251014"
+last_checked = "2026-11-24T07:48:05+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2025/202511/20251104/VIGI C420I(UN) 1.0_2.1.0 Build 251014.zip", "https://static.tp-link.com/upload/firmware/2024/202407/20240717/VIGI C420I(UN)_V1_240620.zip", "https://static.tp-link.com/upload/firmware/2023/202312/20231219/VIGI C420I(UN)_V1.0_231123.zip", "https://static.tp-link.com/upload/firmware/2023/202306/20230613/VIGI C420I(UN)_V1_230524.zip", "https://static.tp-link.com/upload/firmware/2022/202210/20221019/VIGI C420I(UN)_V1_220915.zip", "https://static.tp-link.com/upload/firmware/2022/202210/20221009/VIGI CX20I(UN)_V1_220822.zip"]
+
+[[models]]
+id = "vigi-c420i-v1.20"
+model = "VIGI C420I"
+hardware_version = "1.20"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c420i/v1.20/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202607/20260720/VIGI%20Cx20I(UN)_V1.20_2.2.1%20Build%20260605.zip"
+firmware_version = "2.2.1 Build 260605"
+last_checked = "2026-11-24T07:48:06+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202607/20260720/VIGI Cx20I(UN)_V1.20_2.2.1 Build 260605.zip", "https://static.tp-link.com/upload/firmware/2025/202511/20251108/VIGI C420I(UN) 1.2_2.2.0 Build 250905.zip", "https://static.tp-link.com/upload/firmware/2025/202508/20250820/VIGI C420I (UN) 1.2_2.1.0 Build 250701.zip", "https://static.tp-link.com/upload/firmware/2024/202411/20241127/VIGI C420I(UN)_V1.20_241101.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240507/VIGI C420I(UN)_V1.20_2.0.2 Build 240410.zip"]
+
+[[models]]
+id = "vigi-c330-v1"
+model = "VIGI C330"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c330/v1/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI%20Cx30(UN)%201.0&1.20_2.2.2%20Build%20260624.zip"
+firmware_version = "2.2.2 Build 260624"
+last_checked = "2026-11-24T07:48:06+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI Cx30(UN) 1.0&1.20_2.2.2 Build 260624.zip", "https://static.tp-link.com/upload/firmware/2025/202510/20251010/VIGI C330(UN) 1.0_2.2.0 Build 250905.zip", "https://static.tp-link.com/upload/firmware/2025/202508/20250827/VIGI C330(UN) 1.0_2.1.0 Build 250701.zip", "https://static.tp-link.com/upload/firmware/2024/202411/20241127/VIGI C330(UN)_V1_241028.zip", "https://static.tp-link.com/upload/firmware/2024/202406/20240625/VIGI C330(UN)_V1_240529.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240507/VIGI C330(UN)_V1_2.0.2 Build 240412.zip", "https://static.tp-link.com/upload/firmware/2023/202312/20231219/VIGI C330(UN)_V1.0_231201.zip", "https://static.tp-link.com/upload/firmware/2023/202307/20230706/VIGI C330(UN)_V1_230620.zip", "https://static.tp-link.com/upload/firmware/2022/202212/20221229/VIGI C330(UN)_V1_221114.zip", "https://static.tp-link.com/upload/firmware/2022/202211/20221122/VIGI C330(UN)_V1_220924.zip"]
+
+[[models]]
+id = "vigi-c330-v1.20"
+model = "VIGI C330"
+hardware_version = "1.20"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c330/v1.20/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI%20Cx30(UN)%201.0&1.20_2.2.2%20Build%20260624.zip"
+firmware_version = "2.2.2 Build 260624"
+last_checked = "2026-11-24T07:48:06+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI Cx30(UN) 1.0&1.20_2.2.2 Build 260624.zip", "https://static.tp-link.com/upload/firmware/2025/202510/20251010/VIGI C330(UN) 1.20_2.2.0 Build 250905.zip", "https://static.tp-link.com/upload/firmware/2025/202508/20250827/VIGI C330(UN) 1.0_2.1.0 Build 250701.zip", "https://static.tp-link.com/upload/firmware/2024/202411/20241127/VIGI C330(UN)_V1.20_241028.zip", "https://static.tp-link.com/upload/firmware/2024/202406/20240625/VIGI C330(UN)_V1.20_240529.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240507/VIGI C330(UN)_V1.20_2.0.2 Build 240412.zip"]
+
+[[models]]
+id = "vigi-c430-v1"
+model = "VIGI C430"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c430/v1/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI%20Cx30(UN)%201.0&1.20_2.2.2%20Build%20260624.zip"
+firmware_version = "2.2.2 Build 260624"
+last_checked = "2026-11-24T07:48:06+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI Cx30(UN) 1.0&1.20_2.2.2 Build 260624.zip", "https://static.tp-link.com/upload/firmware/2025/202510/20251010/VIGI C430(UN) 1.0_2.2.0 Build 250905.zip", "https://static.tp-link.com/upload/firmware/2025/202508/20250827/VIGI C430(UN) 1.0_2.1.0 Build 250701.zip", "https://static.tp-link.com/upload/firmware/2024/202411/20241127/VIGI C430(UN)_V1_241028.zip", "https://static.tp-link.com/upload/firmware/2024/202406/20240625/VIGI C430(UN)_V1_240529.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240507/VIGI C430(UN)_V1_2.0.2 Build 240412.zip", "https://static.tp-link.com/upload/firmware/2023/202312/20231219/VIGI C430(UN)_V1.0_231201.zip", "https://static.tp-link.com/upload/firmware/2023/202307/20230706/VIGI C430(UN)_V1_230620.zip", "https://static.tp-link.com/upload/firmware/2022/202212/20221229/VIGI C430(UN)_V1_221114.zip", "https://static.tp-link.com/upload/firmware/2022/202211/20221122/VIGI C430(UN)_V1_220924.zip"]
+
+[[models]]
+id = "vigi-c430-v1.20"
+model = "VIGI C430"
+hardware_version = "1.20"
+region = "UN"
+support_url = "https://www.tp-link.com/en/support/download/vigi-c430/v1.20/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI%20Cx30(UN)%201.0&1.20_2.2.2%20Build%20260624.zip"
+firmware_version = "2.2.2 Build 260624"
+last_checked = "2026-11-24T07:48:06+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202607/20260725/VIGI Cx30(UN) 1.0&1.20_2.2.2 Build 260624.zip", "https://static.tp-link.com/upload/firmware/2025/202510/20251010/VIGI C430(UN) 1.20_2.2.0 Build 250905.zip", "https://static.tp-link.com/upload/firmware/2025/202508/20250827/VIGI C430(UN) 1.0_2.1.0 Build 250701.zip", "https://static.tp-link.com/upload/firmware/2024/202411/20241127/VIGI C430(UN)_V1.20_241028.zip", "https://static.tp-link.com/upload/firmware/2024/202406/20240625/VIGI C430(UN)_V1_240529.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240507/VIGI C430(UN)_V1.20_2.0.2 Build 240412.zip"]
+
+[[models]]
+id = "vigi-c340s-v1"
+model = "VIGI C340S"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.vigi.com/en/support/download/vigi-c340s/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202605/20260512/VIGI%20C340S(UN)%201.0_3.2.1%20Build%20260320.zip"
+firmware_version = "3.2.1 Build 260320"
+last_checked = "2026-11-24T07:48:06+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202605/20260512/VIGI C340S(UN) 1.0_3.2.1 Build 260320.zip", "https://static.tp-link.com/upload/firmware/2025/202512/20251226/VIGI C340S(UN) 1.0_3.2.0 Build 251125.zip", "https://static.tp-link.com/upload/firmware/2025/202507/20250722/VIGI C340S(UN)1.0_3.1.0 Build 250625.zip", "https://static.tp-link.com/upload/firmware/2025/202506/20250606/VIGI C340S(UN) 1.0_3.0.1 Build 250514 Rel.59822n.zip", "https://static.tp-link.com/upload/firmware/2025/202504/20250418/VIGI C340S(UN)_V1_2.5.1 Build 250327 Rel.67051n.zip", "https://static.tp-link.com/upload/firmware/2024/202410/20241011/VIGI C340S(UN)_V1_240914.zip", "https://static.tp-link.com/upload/firmware/2024/202405/20240527/VIGI C340S(UN)_V1_240412.zip", "https://static.tp-link.com/upload/firmware/2024/202403/20240315/VIGI C340S(UN)_V1_240223.zip", "https://static.tp-link.com/upload/firmware/2023/202311/20231106/VIGI C340S(UN)_V1_231010.zip", "https://static.tp-link.com/upload/firmware/2023/202309/20230905/VIGI C340S(UN)_V1_230706.zip"]
+
+[[models]]
+id = "vigi-c540s-v1"
+model = "VIGI C540S"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.vigi.com/en/support/download/vigi-c540s/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202605/20260519/VIGI%20C540S(UN)%201.0_3.2.1%20Build%20260320.zip"
+firmware_version = "3.2.1 Build 260320"
+last_checked = "2026-11-24T07:48:07+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202605/20260519/VIGI C540S(UN) 1.0_3.2.1 Build 260320.zip", "https://static.tp-link.com/upload/firmware/2025/202507/20250722/VIGI C540S(UN)1.0_3.1.0 Build 250625.zip", "https://static.tp-link.com/upload/firmware/2025/202506/20250606/VIGI C540S(UN) 1.0_3.0.1 Build 250514 Rel.60842n.zip", "https://static.tp-link.com/upload/firmware/2025/202504/20250418/VIGI C540S(UN)_V1_2.5.1 Build 250327 Rel.67991n.zip", "https://static.tp-link.com/upload/firmware/2025/202501/20250121/VIGI C540S(UN)_V1_241213.zip", "https://static.tp-link.com/upload/firmware/2024/202409/20240920/VIGI C540S(UN)_V1_240913.zip", "https://static.tp-link.com/upload/firmware/2023/202312/20231219/VIGI C540S(UN)_V1_231128.zip", "https://static.tp-link.com/upload/firmware/2023/202311/20231106/VIGI C540S(UN)_V1_231010.zip", "https://static.tp-link.com/upload/firmware/2023/202310/20231017/VIGI C540S(UN)_V1_230915.zip", "https://static.tp-link.com/upload/firmware/2023/202307/20230719/VIGI C540S(UN)_V1_230615.zip"]
+
+[[models]]
+id = "insight-s345s-v1"
+model = "InSight S345S"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.vigi.com/en/support/download/insight-s345s/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202610/20261027/InSight%20S345S(UN)%201.0&1.6_1.3.0%20Build%20260910.zip"
+firmware_version = "1.3.0 Build 260910"
+last_checked = "2026-11-24T07:48:07+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202610/20261027/InSight S345S(UN) 1.0&1.6_1.3.0 Build 260910.zip", "https://static.tp-link.com/upload/firmware/2026/202604/20260413/InSight S345S(UN) 1.0_1.1.1 Build 260206.zip", "https://static.tp-link.com/upload/firmware/2025/202509/20250920/InSight S345S(UN) 1.0_1.0.2 Build 250625.zip"]
+
+[[models]]
+id = "insight-s445s-v1"
+model = "InSight S445S"
+hardware_version = "1"
+region = "UN"
+support_url = "https://www.vigi.com/en/support/download/insight-s445s/#Firmware"
+firmware_url = "https://static.tp-link.com/upload/firmware/2026/202610/20261027/InSight%20S445S(UN)%201.0&1.6_1.3.0%20Build%20260910.zip"
+firmware_version = "1.3.0 Build 260910"
+last_checked = "2026-11-24T07:48:07+00:00"
+check_status = "Seed verified against official page; recorded first listed firmware. Review hardware and region before use."
+available_firmware_urls = ["https://static.tp-link.com/upload/firmware/2026/202610/20261027/InSight S445S(UN) 1.0&1.6_1.3.0 Build 260910.zip", "https://static.tp-link.com/upload/firmware/2026/202604/20260413/InSight S445S(UN) 1.0_1.1.1 Build 260206.zip", "https://static.tp-link.com/upload/firmware/2025/202507/20250721/InSight S445S(UN) 1.0_1.0.2 Build 250625.zip"]
