@@ -22,7 +22,7 @@ The standalone upgrade and combined factory activation, upgrade, fresh login and
 
 ## C340S V1 staged upgrade experiment
 
-A second C340S hardware 1.0 camera passed initialization-only with current firmware `2.0.3 Build 240412 Rel.42481n`. The first camera remains the preserved-2024 reference. The official 3.2.1 release notes require at least 2.5.0, and 2.5.1 permits upgrading from older versions except 2.5.0. The controlled route implemented here is exactly **2.0.3 → 2.5.1 → 3.2.1**. Other source versions are not inferred compatible. Vendor notes say that downgrading after 2.5.1 is unavailable.
+A second C340S hardware 1.0 camera passed initialization-only with current firmware `2.0.3 Build 240412 Rel.42481n`. The first camera was initially the preserved-2024 reference; it was subsequently upgraded during the successful continuous GUI test. Both C340S units now run 3.2.1. The official 3.2.1 release notes require at least 2.5.0, and 2.5.1 permits upgrading from older versions except 2.5.0. The controlled route implemented here is exactly **2.0.3 → 2.5.1 → 3.2.1**. Other source versions are not inferred compatible. Vendor notes say that downgrading after 2.5.1 is unavailable.
 
 Sources: [3.2.1 release notes](https://static.tp-link.com/upload/firmware/2026/202605/20260512/Release%20Note%20VIGI%20C340S%28UN%29%201.0_3.2.1%20Build%20260320.pdf), [2.5.1 release notes](https://static.tp-link.com/upload/firmware/2025/202504/20250418/Release%20note%20VIGI%20C340S%28UN%29_V1_2.5.1%20Build%20250327%20Rel.67051n.pdf).
 
@@ -33,7 +33,7 @@ Sources: [3.2.1 release notes](https://static.tp-link.com/upload/firmware/2026/2
 | bridge | C340S_1.0_en_2.5.1_Build_250327_Rel.67051n_up_boot-signed.bin | e991185eee0c34eb6a532fe343fb8392aa62631968fdbfb43d5c2bf75d4b82c5 | b5268042e1a3abff9039b4fa06f0f816632ad82c579310ac1926f59b295ba2ce |
 | latest | C340S_1.0_en_3.2.1_Build_260320_Rel.22146n_up_boot_signed.bin | 44e06b69c44d96bbd103deba5097bcbd8be4774e500dfc8159dcae65140816a2 | e54840807895ee61eceaf830c6474e90a7c263620278ab16497f6d1617f5cbc4 |
 
-The original official packages and both image hashes were inspected locally. Offline tests cover package/image changes, preflight without upload, forbidden direct old-to-latest upgrades, cancelled confirmation, identity mismatch and target readback. Both C340S stages passed real upload and authenticated target-version verification. Site settings and port-80 static network/DNS configuration then passed on 3.2.1. These tested stages are now integrated into the GUI approved-update path; the combined automatic chain is pending a hardware run.
+The original official packages and both image hashes were inspected locally. Offline tests cover package/image changes, preflight without upload, forbidden direct old-to-latest upgrades, cancelled confirmation, identity mismatch and target readback. Both C340S stages passed real upload and authenticated target-version verification. Site settings and port-80 static network/DNS configuration then passed on 3.2.1. These tested stages are now integrated into the GUI approved-update path; the combined automatic chain passed a continuous real-hardware GUI run, including both uploads and final configuration.
 
 Example first-stage preflight:
 
@@ -45,3 +45,5 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_c340s_upgrade \
 ```
 
 Only after reviewing preflight, repeat with `--execute` for a real upgrade. For the latest stage, use its inspected original ZIP and `--stage latest`. Each stage requires its own confirmation and hardware verification.
+
+The continuous C340S GUI chain is now hardware-verified: both actual upgrades, certificate reapproval/fresh login after each, modern configuration selection, static networking and DNS completed in one run on 2026-11-24. The first target-already-installed 3.2.1 factory-reset GUI branch also passed, without repeating uploads. See [completed GUI evidence](test-gui.md#completed-continuous-c340s-hardware-run) and [tested model revisions](../README.md#tested-camera-models).

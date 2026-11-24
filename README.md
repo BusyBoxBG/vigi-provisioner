@@ -2,6 +2,17 @@
 
 Factory-to-static-IP provisioning for TP-Link VIGI cameras on an isolated corporate LAN. The Ubuntu workflow matches a scanned Device ID and MAC against SQLite, activates the camera over certificate-pinned HTTPS, applies a shared TOML profile, configures and verifies static IPv4 over ONVIF, then applies and verifies both DNS addresses over HTTPS.
 
+## Tested camera models
+
+| Camera model | Hardware revision | Hardware-tested firmware paths | Verified result |
+| --- | --- | --- | --- |
+| TP-Link VIGI C320I | V1.20 (device may report 1.20 or 1.2) | Preserve 2.0.4 Build 241101; upgrade 2.0.4 → 2.2.1 Build 260605; provision 2.2.1 | Activation, supported configuration, static IPv4/gateway and DNS; preserved-firmware GUI and upgrade/configuration hardware runs passed |
+| TP-Link VIGI C340S | V1 (device reports 1.0) | Preserve 2.0.3 Build 240412; provision installed 3.2.1 Build 260320; continuous GUI 2.0.3 → 2.5.1 Build 250327 → 3.2.1 | Complete GUI initialization, both real upgrades, configuration, ONVIF networking, DNS and inventory metadata passed |
+
+These are the two physically tested models. C320I V1, C420I, C330, C430, C540S and InSight S345S/S445S entries are catalog-only until separately tested; shared package names do not establish support. Tested revisions do not imply support for other hardware revisions or firmware versions.
+
+The latest C340S continuous GUI run also verified motion detection with **all processing actions off**, with its full-image region and 24/7 schedule retained. Earlier C320I runs used the previous motion-action profile. Legacy date/time-format limitations and missing motion fields are explicitly reported; country BG remains profile intent when the camera readback is empty, and recovery email is submitted without independent readback.
+
 ## Verified test setup
 
 | Parameter | Value |
@@ -17,7 +28,7 @@ Factory-to-static-IP provisioning for TP-Link VIGI cameras on an isolated corpor
 | Gateway | `192.168.0.1` |
 | DNS (primary / secondary) | `84.54.128.100` / `8.8.8.8` |
 | Custom NTP | `84.54.128.102:123` (UDP), every 60 minutes |
-| Protocols | TP-Link UDP discovery on 5001, HTTPS on 443, ONVIF on HTTP 80 |
+| Protocols | TP-Link UDP discovery on 5001, HTTPS on 443, ONVIF on HTTP 80 with 2020 fallback on the inspected paths |
 
 Keep host and VM addresses distinct. Reserve the target IPv4 and exclude it from DHCP allocation to other devices.
 
@@ -33,7 +44,7 @@ python -m pip install .
 python scripts/check_offline.py
 ```
 
-An existing virtual environment can be reused. The offline check imports the package and runs 11 checks without contacting a camera.
+An existing virtual environment can be reused. The offline check imports the package and runs the regression suite without contacting a camera.
 
 ## 2. Enter the approved camera in SQLite
 
@@ -243,30 +254,18 @@ Automatic activation detection is shared by CLI and GUI. It recognizes the exact
 
 The GUI offers **Keep existing firmware (no upgrade)** for stock-firmware tests, **Update to default approved firmware after initialization** as the default mode, and a separate profile-controlled upgrade option. Both modes share automatic activation detection. Preserved 2.0.4 provisioning on the tested C320I 1.20 completed with readback and visual verification, with unavailable settings reported in the log. See [GUI firmware handling](docs/test-gui.md#existing-firmware-and-automatic-compatibility).
 
-### Verified provisioning paths
+### Hardware verification and current workflow
 
-| Path on tested VIGI C320I hardware 1.20 | Result |
-| --- | --- |
-| Factory 2.0.4, activate, preserve firmware, apply supported settings through CLI | Passed readback and operator visual inspection |
-| Factory 2.0.4, automatic activation detection, preserve firmware through GUI | Passed complete provisioning and ONVIF inventory metadata collection |
-| Factory 2.0.4, activate, upgrade to 2.2.1, apply complete site profile | Passed firmware readback, configuration readback and operator inspection |
+The C320I V1.20 paths and C340S V1 paths are listed in the tested-model table above. The continuous C340S GUI run completed on 2026-11-24: factory 2.0.3 activation, verified 2.5.1 upgrade, verified 3.2.1 upgrade, fresh certificate approval/login after both upgrades, all modern site settings, ONVIF port-80 static addressing, inventory metadata and HTTPS saved/active DNS verification. Final address was `192.168.0.160/24`, gateway `192.168.0.1`, DHCP disabled, DNS `84.54.128.100` / `8.8.8.8`. A separate factory-reset 3.2.1 GUI run passed at `.161` and correctly skipped both already-installed firmware stages.
 
-The preserved-stock GUI camera reached `192.168.0.153/24`, gateway `192.168.0.1`, DHCP disabled, with saved and active DNS `84.54.128.100` and `8.8.8.8`. NTP, manual DST, serial device name and OSD text, H265 with smart codec off, audio, Platform Access, motion capture and 24/7 detection, and login-error exception settings passed readback. Its HTTPS certificate remained unchanged after the IP move in this run; other runs have required new certificate approval.
-
-Legacy `date_format` and `time_format` are unsupported. `obj_filter_enabled` and `report_server_enabled` are absent from the legacy motion schema and explicitly excluded. Country BG remains profile intent with empty camera readback; recovery email is submitted during activation without independent readback. These results apply to the tested model, hardware and firmware, not all VIGI cameras. Modern automatic signature selection still awaits a live test.
+The current motion profile keeps detection configured while disabling all motion-event processing actions, including recording and snapshot capture. The targeted action-only command passed hardware readback with detector/schedule unchanged; the subsequent continuous GUI run verified the same all-off policy. Existing site profiles must have their action booleans set to false. See [motion processing actions](docs/test-gui.md#motion-processing-actions).
 
 ### Model and firmware catalog
 
-The GUI includes an editable **Camera models and firmware** catalog seeded with 12 model/hardware combinations. `models.toml` is separate from individual camera inventory and can be edited over the terminal. Add/edit models in the GUI, select a catalog model when adding a camera, and use **Check for new firmware** to list official firmware links without downloading or installing packages. Internet checks are optional; offline catalog use remains available. See [model catalog](docs/model-catalog.md) for fields, limitations and setup. A catalog entry does not establish provisioning or upgrade compatibility.
+The GUI includes an editable **Camera models and firmware** catalog seeded with 12 model/hardware combinations. `models.toml` is separate from individual camera inventory and can be edited over the terminal. Add/edit models in the GUI and link cameras to the exact model/hardware/region. Checks list official firmware candidates; choosing and approving a candidate prepares the local default. A catalog entry does not establish provisioning or upgrade compatibility. See [model catalog](docs/model-catalog.md).
 
-The catalog now manages **default approved firmware**. Download the current defaults or explicitly choose a checked candidate, review its version, and approve its local download. Ubuntu stores ZIPs/images under `firmware/` beside the site profile, with checksums and approval metadata in `models.toml`. Provisioning uses the exact linked model/hardware default after activation and before configuration, subject to the existing tested upgrade limits. **Keep existing firmware** must be selected for preserved-stock tests. See [approval and cache workflow](docs/model-catalog.md#default-approved-firmware-and-local-downloads).
+Approved packages are cached under `firmware/` beside the site profile, with checksums and approval metadata in `models.toml`. Offline C340S target import and the intermediate 2.5.1 package are supported. The GUI defaults to **Update to default approved firmware after initialization**; **Keep existing firmware** is available for the inspected preserved-firmware paths. **Initialize only** activates an inspected camera and verifies login without site, firmware or network writes.
 
-For controlled new-model tests, the GUI includes **Initialize only (no update, settings or IP change)**. It supports the inspected C340S/C320I activation flows, verifies inventory identity and fresh login, and records status `initialized`. C340S account activation and fresh login passed the initialization-only GUI hardware test; C340S upgrades now use the inspected two-stage route; the staged-tested preserved-firmware configuration path is available as described below. This mode intentionally leaves all site and network settings unapplied. See [initialization-only mode](docs/test-gui.md#initialization-only-compatibility-tests).
+The integrated C340S workflow selects the required upgrades and actual configuration schema from authenticated firmware readback. Each real upgrade has its own confirmation and verification; already-installed stages are skipped, and unknown source versions or unverified outcomes stop the run. See [C340S GUI workflow](docs/test-gui.md#c340s-approved-update-and-provisioning) and [firmware packages and prerequisites](docs/firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
 
-C340S V1 full GUI provisioning is now available with **Keep existing firmware (no upgrade)** for the authenticated hardware 1.0 / firmware 2.0.3 Build 240412 Rel.42481n test path. Initialization, supported site settings, static network and DNS stages have passed separate hardware tests; the combined factory-reset GUI cycle passed readback. Approved firmware updating now supports the inspected C340S two-stage route. See [C340S GUI test](docs/test-gui.md#c340s-v1-full-provisioning-with-existing-firmware).
-
-The second C340S is reserved for the documented two-stage firmware experiment (2.0.3 → 2.5.1 → 3.2.1). The standalone command defaults to preflight, verifies inspected packages and requires an explicit confirmation per real upload. Both C340S firmware stages passed hardware verification and are now integrated into the GUI, with the combined automatic chain awaiting a live run. See [C340S upgrade experiment](docs/firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
-
-The GUI now joins the tested C340S stages into one approved-update workflow, including the required intermediate 2.5.1 package, target 3.2.1 verification, certificate renewal handling, modern site settings and preferred ONVIF port 80. Already-installed stages are skipped. See [C340S preparation and test limits](docs/test-gui.md#c340s-approved-update-and-provisioning). The full automatic chain still needs its first live GUI run; individual stages passed on hardware.
-
-The current motion profile keeps detection configured while disabling all motion-event processing actions, including recording and snapshot capture. Existing site profiles need their action booleans changed to false; the targeted vigi_motion_actions command updates those flags and applies them to an already-configured camera without resetting or reprovisioning it. See [motion processing actions](docs/test-gui.md#motion-processing-actions).
+Both C340S test units now run 3.2.1. The earlier preserved 2024 unit was used for the successful continuous two-stage GUI test. Its earlier preserved-firmware results remain valid, but repeating the actual old-to-new upgrade route requires another older-stock unit.
