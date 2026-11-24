@@ -94,6 +94,7 @@ def confirm_factory(camera):
 
 # Exact resources inspected from factory-state HAR captures. Unknown builds stop.
 ACTIVATION_RESOURCES = (
+    ("/index-C7umv8cc.js", "d0d0a8416b8caf475fc1cdb3af11dce5e40e3f5e8514a553dac521cc3fa78d4e", "modern"),
     ("/index.d6a35dd0.js", "e62d34449bab77ee22e1256864de71d9a50dfa191639bff2d1f24482fc3e59e3", "modern"),
     ("/pc/Initial.htm", "170a83d3dc6bde88c886b5aab43b4a6a78f733a23ab3a6fc837c13341bb291e3", "legacy-2024"),
     ("/index.f129addb.js", "7d8169187aa8feb9fbb9a0aa77641e29c58989a92854db773688ca5617ffba33", "modern"),
@@ -107,8 +108,8 @@ def detect_activation_format(camera):
         try:
             camera.request("GET", path, headers={"Accept-Encoding": "identity"})
             response = camera.getresponse()
-            raw = response.read(4_000_001)
-            if response.status == 200 and len(raw) <= 4_000_000:
+            raw = response.read(8_000_001)
+            if response.status == 200 and len(raw) <= 8_000_000:
                 if hashlib.sha256(raw).hexdigest() == expected_hash:
                     matches.add(activation_format)
         except Exception as exc:
@@ -895,8 +896,8 @@ def initialize_only(args):
     uri = Path(args.inventory).resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
         row = db.execute("SELECT model,mac_address,hardware_version,label_serial FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
-    if row is None or row[0] not in {"VIGI C320I", "VIGI C340S"}:
-        raise ProvisioningError("Initialization-only is limited to the inspected C320I/C340S activation flows.")
+    if row is None or row[0] not in {"VIGI C320I", "VIGI C340S", "VIGI C540S"}:
+        raise ProvisioningError("Initialization-only is limited to inspected C320I/C340S/C540S activation flows.")
     from .vigi_discovery import decode_device_id
     devices = discover(local_ip=SOURCE_IP, timeout=5)
     at_ip = [d for d in devices if d.get("ip") == CAMERA_IP]

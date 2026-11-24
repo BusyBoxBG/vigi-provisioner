@@ -213,8 +213,8 @@ class Application:
                 raise ValueError("Wait for discovery or provisioning to finish.")
             row = db.execute("SELECT model,hardware_version,catalog_id FROM camera_inventory WHERE device_id=?", (device_id,)).fetchone()
             if firmware_mode == "initialize":
-                if row is None or row[0] not in {"VIGI C320I", "VIGI C340S"}:
-                    raise ValueError("Initialization-only currently supports the inspected C320I/C340S flows.")
+                if row is None or row[0] not in {"VIGI C320I", "VIGI C340S", "VIGI C540S"}:
+                    raise ValueError("Initialization-only currently supports inspected C320I/C340S/C540S flows.")
             elif row and row[0] == "VIGI C340S":
                 if firmware_mode not in {"preserve", "approved"} or (row[1] and row[1] not in {"1", "1.0"}):
                     raise ValueError("C340S V1 supports Keep existing firmware or catalog-approved updating; profile-controlled updating is not supported.")
