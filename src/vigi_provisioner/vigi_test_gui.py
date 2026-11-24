@@ -306,7 +306,12 @@ def worker(args):
     discover = workflow.discover
     def observe(*a, **kw):
         cameras = discover(*a, **kw)
-        wanted = workflow.load_inventory_assignment(args.inventory,args.device_id)[0]
+        uri = Path(args.inventory).resolve().as_uri() + "?mode=ro"
+        with closing(sqlite3.connect(uri, uri=True)) as db:
+            row = db.execute("SELECT mac_address FROM camera_inventory WHERE device_id=?", (args.device_id,)).fetchone()
+        if row is None:
+            raise ValueError("Selected camera inventory record not found.")
+        wanted = row[0]
         matches = [c for c in cameras if normalize_mac(c["mac"]) == normalize_mac(wanted)]
         if matches:
             print("GUI_OBSERVATION " + json.dumps(matches[0]), flush=True)

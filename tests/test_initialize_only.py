@@ -40,3 +40,22 @@ class InitializeOnlyTests(unittest.TestCase):
         with patch("sys.argv", ["workflow", "--initialize-only", "--firmware-file", "image.bin"]), patch.object(workflow, "initialize_only") as initialize:
             with self.assertRaises(SystemExit): workflow.main()
             initialize.assert_not_called()
+
+    def test_gui_discovery_observer_accepts_c340s_inventory(self):
+        from vigi_provisioner.vigi_test_gui import worker
+        with tempfile.TemporaryDirectory() as directory:
+            database = str(Path(directory) / "inventory.sqlite3")
+            initialize_inventory(database)
+            device_id = "3B27D0E00114896A2"
+            with closing(sqlite3.connect(database)) as db, db:
+                db.execute("INSERT INTO camera_inventory (device_id,mac_address,model,approved_ipv4,prefix_length,gateway_ipv4) VALUES (?,?,?,?,?,?)",
+                           (device_id, "30689353CD67", "VIGI C340S", "192.168.0.154", 24, "192.168.0.1"))
+            observation = dict(ip="192.168.0.60", mac="30-68-93-53-cd-67", model="VIGI C340S")
+            args = SimpleNamespace(inventory=database, config="profile.toml", device_id=device_id, initialize_only=True, skip_firmware=True, firmware_file=None)
+            def main():
+                import sys
+                self.assertIn("--initialize-only", sys.argv)
+                self.assertEqual(workflow.discover(), [observation])
+            # Worker installs wrappers; restore the module dictionary after this test.
+            with patch.dict(workflow.__dict__, {}), patch.object(workflow, "discover", return_value=[observation]), patch.object(workflow, "main", side_effect=main), patch("sys.argv", ["gui-worker"]):
+                worker(args)
