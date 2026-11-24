@@ -1,5 +1,6 @@
 import socket
 import struct
+import re
 
 REQUEST = bytes.fromhex(
     "01020e00e12b83c78bdf0015000000050011"
@@ -7,6 +8,14 @@ REQUEST = bytes.fromhex(
 )
 
 MAGIC = bytes.fromhex("e12b83c7")
+
+
+def decode_device_id(raw):
+    """Decode observed QR wrappers; suffix meaning is not established."""
+    if not isinstance(raw, str):
+        return None
+    match = re.fullmatch(r"TP1([0-9A-F]{17})(?:020|040)", raw.upper())
+    return match[1] if match else None
 
 
 def parse_discovery(data, source_ip):

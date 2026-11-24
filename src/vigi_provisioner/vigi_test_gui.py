@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .vigi_pin_inventory import normalize_mac
 from .vigi_onvif import get_device_information
-from .vigi_discovery import discover
+from .vigi_discovery import discover, decode_device_id
 from .vigi_onvif_live_transport import SOURCE_IP
 from .vigi_model_catalog import load_catalog, save_catalog, validate_model, check_firmware
 from .vigi_firmware_cache import approve_download, approved_image
@@ -183,9 +183,8 @@ class Application:
                     continue
                 observation = dict(camera)
                 raw_qr = observation.get("serial")
-                import re
-                match = re.fullmatch(r"TP1([0-9A-F]{17})020", (raw_qr or "").upper())
-                observation["device_id"] = match[1] if match else None
+                observation["device_id"] = decode_device_id(raw_qr)
+                observation["qr_wrapper_suffix"] = raw_qr[-3:] if observation["device_id"] else None
                 observation["qr_code_raw"] = raw_qr
                 observation["serial"] = None
                 observation["serial_note"] = "Label serial is not established by this discovery field."

@@ -46,3 +46,7 @@ Optional text fields decode invalid UTF-8 with replacement. Empty optional field
 ## Older packet implementation
 
 [discovery.py](../src/vigi_provisioner/discovery.py) is the separate legacy decoder built on [packets.py](../src/vigi_provisioner/packets.py). The legacy codec checks version, header length, reserved bytes, magic, length, and checksum. It zeroes bytes 8–9 for checksum verification, sums big-endian 16-bit words with end-around carry, adds an odd final byte as an unshifted value, and complements the result. The UDP 5001 parser above implements its own checks and does not use this decoder. Legacy key exchange and encrypted request modules are listed in the [Python reference](python-reference.md).
+
+## C340S discovery observation
+
+A factory-new VIGI C340S was observed at 192.168.0.60 with ONVIF port 2020 and QR TLV `TP1` + 17 hexadecimal Device ID characters + `040`. Earlier C320I observations used suffix `020`. The GUI discovery decoder now recognizes both exact wrapper shapes and retains the raw QR value and suffix. The suffix meaning is not established; it is not used to infer firmware generation or authorize provisioning. Label serial remains a separate scanned field. The decoded ID must still match the printed/scanned inventory identity. C340S activation and configuration remain untested and blocked by the existing provisioning engine.
