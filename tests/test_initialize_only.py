@@ -18,12 +18,13 @@ class InitializeOnlyTests(unittest.TestCase):
                 db.execute("INSERT INTO camera_inventory (device_id,mac_address,model,approved_ipv4,prefix_length,gateway_ipv4,hardware_version) VALUES (?,?,?,?,?,?,?)",
                            (device_id, "30689353CD67", "VIGI C340S", "192.168.0.154", 24, "192.168.0.1", "1"))
             camera = Mock()
-            camera.post.return_value = (200, {"device_info": {"info": {"sw_version": "old", "hw_version": "1.0", "device_model": "VIGI%20C340S"}}})
+            camera.post.return_value = (200, {"device_info": {"info": {"sw_version": "2.0.3 Build 240412 Rel.42481n", "hw_version": "1.0", "device_model": "VIGI%20C340S"}}})
             observation = dict(ip="192.168.0.60", mac="30-68-93-53-cd-67", model="VIGI C340S", factory_flag=0, serial="TP1"+device_id+"040")
             args = SimpleNamespace(inventory=database, device_id=device_id, pin=None, config=str(Path(__file__).resolve().parents[1]/"provisioning.example.toml"))
-            with patch.object(workflow, "discover", return_value=[observation]), patch.object(workflow, "CameraHTTPS", return_value=camera), patch.object(workflow, "approve_observed_pin", return_value="pin"), patch.object(workflow, "confirm_factory"), patch.object(workflow, "detect_activation_format", return_value="legacy-2.0.4"), patch.object(workflow, "getpass", return_value="offline-test"), patch.object(workflow, "input", return_value="INITIALIZE "+device_id), patch.object(workflow, "login", return_value="/session"), patch.object(workflow, "configure_region") as region, patch.object(workflow, "configure_network") as network, patch("vigi_provisioner.vigi_firmware_upgrade.upgrade_after_activation") as upgrade:
+            with patch.object(workflow, "discover", return_value=[observation]), patch.object(workflow, "CameraHTTPS", return_value=camera), patch.object(workflow, "approve_observed_pin", return_value="pin"), patch.object(workflow, "confirm_factory"), patch.object(workflow, "detect_activation_format", return_value="legacy-2024"), patch.object(workflow, "getpass", return_value="offline-test"), patch.object(workflow, "input", return_value="INITIALIZE "+device_id), patch.object(workflow, "login", return_value="/session"), patch.object(workflow, "configure_region") as region, patch.object(workflow, "configure_network") as network, patch("vigi_provisioner.vigi_firmware_upgrade.upgrade_after_activation") as upgrade:
                 result = workflow.initialize_only(args)
                 self.assertTrue(result["initialization_only"])
+                self.assertEqual(result["firmware_build_year"], 2024)
                 self.assertEqual([c.args[0] for c in camera.post.call_args_list], ["Factory activation", "Read initialized device metadata"])
                 region.assert_not_called()
                 network.assert_not_called()
@@ -59,3 +60,9 @@ class InitializeOnlyTests(unittest.TestCase):
             # Worker installs wrappers; restore the module dictionary after this test.
             with patch.dict(workflow.__dict__, {}), patch.object(workflow, "discover", return_value=[observation]), patch.object(workflow, "main", side_effect=main), patch("sys.argv", ["gui-worker"]):
                 worker(args)
+
+    def test_legacy_format_alias_preserves_payload(self):
+        with patch.object(workflow, "encrypt_ipc_password", return_value="offline"):
+            current = workflow.activation_payload("test", "test@example.invalid", "English", "legacy-2024")
+            previous = workflow.activation_payload("test", "test@example.invalid", "English", "legacy-2.0.4")
+        self.assertEqual(current, previous)

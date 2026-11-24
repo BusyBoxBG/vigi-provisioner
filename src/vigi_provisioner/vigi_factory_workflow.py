@@ -94,7 +94,7 @@ def confirm_factory(camera):
 
 # Exact resources inspected from factory-state HAR captures. Unknown builds stop.
 ACTIVATION_RESOURCES = (
-    ("/pc/Initial.htm", "170a83d3dc6bde88c886b5aab43b4a6a78f733a23ab3a6fc837c13341bb291e3", "legacy-2.0.4"),
+    ("/pc/Initial.htm", "170a83d3dc6bde88c886b5aab43b4a6a78f733a23ab3a6fc837c13341bb291e3", "legacy-2024"),
     ("/index.f129addb.js", "7d8169187aa8feb9fbb9a0aa77641e29c58989a92854db773688ca5617ffba33", "modern"),
 )
 
@@ -126,9 +126,11 @@ def detect_activation_format(camera):
 
 
 def activation_payload(password, email, language, activation_format="modern"):
-    if activation_format not in ("modern", "legacy-2.0.4"):
-        raise ValueError("Unknown activation format")
     if activation_format == "legacy-2.0.4":
+        activation_format = "legacy-2024"  # Backward-compatible explicit CLI/API alias.
+    if activation_format not in ("modern", "legacy-2024"):
+        raise ValueError("Unknown activation format")
+    if activation_format == "legacy-2024":
         # Captured from the 2.0.4 wizard: email is encoded, not RSA encrypted.
         return {
             "method": "do",
@@ -747,6 +749,8 @@ def provision(args):
     camera = CameraHTTPS(pin)
     confirm_factory(camera)
     activation_format = getattr(args, "activation_format", "auto")
+    if activation_format == "legacy-2.0.4":
+        activation_format = "legacy-2024"
     if activation_format == "auto":
         activation_format = detect_activation_format(camera)
 
@@ -786,7 +790,7 @@ def provision(args):
                 path = login(camera, password)
         if alias is not None:
             configure_device_alias(camera, path, alias)
-        legacy_settings = (activation_format == "legacy-2.0.4"
+        legacy_settings = (activation_format == "legacy-2024"
                            and (skip_firmware or config.firmware_file is None))
         configure_region(camera, path, config, legacy_clock=legacy_settings)
         if config.video is not None:
@@ -867,6 +871,11 @@ def initialize_only(args):
                          "onvif_model": unquote(info.get("device_model", "")),
                          "hardware_id": unquote(info.get("hw_version", ""))})
         print(f"Observed firmware: {metadata['firmware'] or 'unavailable'}; hardware: {metadata['hardware_id'] or 'unavailable'}.", flush=True)
+        build = re.search(r"\bBuild\s+(\d{8}|\d{6})\b", metadata["firmware"])
+        if build:
+            date = build[1]
+            metadata["firmware_build_year"] = int(date[:4] if len(date) == 8 else "20" + date[:2])
+            print(f"Firmware build year: {metadata['firmware_build_year']}.", flush=True)
     except ProvisioningError:
         print("Device metadata unavailable; authenticated login was verified.", flush=True)
     print("Initialization complete. Fresh login verified; no firmware, site configuration or network writes sent.", flush=True)
@@ -877,7 +886,7 @@ def initialize_only(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--initialize-only", action="store_true", help="Activate inventory camera and verify login, then stop")
-    parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2.0.4"), default="auto",
+    parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2024", "legacy-2.0.4"), default="auto",
                         help="Default auto verifies a known factory web-resource signature before activation")
     parser.add_argument("--firmware-file", help="Explicit approved local firmware image, overriding the profile file")
     parser.add_argument("--skip-firmware", action="store_true",
