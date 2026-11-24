@@ -838,3 +838,7 @@ Reads and atomically saves the model/hardware/region TOML catalog. Validates off
 ## vigi_firmware_cache.py
 
 Downloads selected official firmware ZIPs, validates size and single-image layout, stores the ZIP and image with SHA-256 hashes, and validates approved local image files before GUI provisioning. No camera requests are issued. The GUI supplies model approval and links the selected image to the factory workflow through --firmware-file. See [firmware cache](model-catalog.md#default-approved-firmware-and-local-downloads).
+
+## vigi_c340s_upgrade.py
+
+Standalone staged C340S V1 firmware-upgrade experiment. Holds exact package/image hashes and source/target rules, reads inventory and initialized discovery identity, verifies authenticated ONVIF identity, supports preflight-only by default and a confirmed single upload with target-version polling. It reuses the existing HTTPS login and multipart transport and never runs provisioning or the next upgrade automatically. See [C340S staged upgrade](firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
