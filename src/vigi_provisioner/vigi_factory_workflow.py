@@ -714,7 +714,10 @@ def provision(args):
         config = replace(config, firmware_file=str(Path(override).resolve()))
     skip_firmware = getattr(args, "skip_firmware", False)
     if expected_model == "VIGI C540S" and not skip_firmware:
-        raise ProvisioningError("C540S currently requires --skip-firmware; firmware upgrading is not yet inspected.")
+        from .vigi_c540s_upgrade import inspect_latest_image
+        if not config.firmware_file:
+            raise ProvisioningError("C540S updating requires the inspected approved 3.2.1 image.")
+        inspect_latest_image(config.firmware_file)
     if skip_firmware:
         print("Firmware upgrade disabled for this run.", flush=True)
     bridge_package = Path(getattr(args, "c340s_bridge_package", None) or Path.home() / "vigi-c340s-2.5.1.zip")
@@ -724,7 +727,7 @@ def provision(args):
             raise ProvisioningError("C340S updating requires an approved 3.2.1 image and intermediate 2.5.1 ZIP.")
         inspect_latest_image(config.firmware_file)
         inspect_package(bridge_package, STAGES["bridge"])
-    if expected_model != "VIGI C340S" and config.firmware_file is not None and not skip_firmware:
+    if expected_model == "VIGI C320I" and config.firmware_file is not None and not skip_firmware:
         from .vigi_firmware_upgrade import inspect_firmware
         try:
             inspect_firmware(config.firmware_file)
@@ -842,14 +845,21 @@ def provision(args):
             c340s_legacy = info.get("FirmwareVersion") == SOURCE
             print(f"Verified C340S firmware {info.get('FirmwareVersion')}; configuration schema: {'legacy' if c340s_legacy else 'modern'}; ONVIF port {c340s_port}.", flush=True)
         elif expected_model == "VIGI C540S":
-            info = get_device_information(f"http://{CAMERA_IP}:80/onvif/device_service", USERNAME, password)
-            selected_interface(f"http://{CAMERA_IP}:80/onvif/device_service", password, mac)
-            if (info.get("Model") != "VIGI C540S"
-                    or info.get("HardwareId") not in {"1", "1.0"}
-                    or info.get("FirmwareVersion") != "3.2.0 Build 251111 Rel.66535n"
-                    or activation_format != "modern"):
-                raise ProvisioningError("C540S identity, firmware or activation format is outside the inspected path. No site or network settings sent.")
-            print("Verified C540S hardware 1.0, firmware 3.2.0 Build 251111; modern schema, ONVIF port 80; preserving firmware.", flush=True)
+            from .vigi_c540s_upgrade import read_identity, inspect_latest_image, upgrade_stage, STAGES, SOURCE
+            info, _ = read_identity(password, compact_mac)
+            if activation_format != "modern" or info.get("FirmwareVersion") not in {SOURCE, STAGES["latest"].target}:
+                raise ProvisioningError("C540S firmware or activation format is outside the inspected path. No site or network settings sent.")
+            if not skip_firmware:
+                image = inspect_latest_image(config.firmware_file)
+                upgraded = upgrade_stage(camera, path, password, compact_mac, args.device_id, STAGES["latest"], image, input)
+                if upgraded:
+                    pin = pin_after_network_move(CAMERA_IP, pin, independently_verified=args.pin is not None)
+                    camera = CameraHTTPS(pin)
+                    path = login(camera, password)
+                info, _ = read_identity(password, compact_mac)
+                if info.get("FirmwareVersion") != STAGES["latest"].target:
+                    raise ProvisioningError("C540S target firmware was not verified. No site settings sent.")
+            print(f"Verified C540S firmware {info.get('FirmwareVersion')}; modern schema, ONVIF port 80.", flush=True)
         elif config.firmware_file is not None and not skip_firmware:
             from .vigi_firmware_upgrade import upgrade_after_activation
             try:

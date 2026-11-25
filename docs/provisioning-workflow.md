@@ -120,4 +120,4 @@ The all-off processing profile disables record, snapshot capture, FTP, push, ala
 
 ## C540S V1 preserved firmware path
 
-Hardware 1.0 with firmware 3.2.0 Build 251111 Rel.66535n passed separate activation, modern site settings, ONVIF port-80 IP/mask/gateway and HTTPS DNS stages. GUI Keep existing firmware runs these stages together; continuous hardware validation is pending. Other C540S versions and firmware updates are blocked. The tested assignment is 192.168.0.170/24, gateway 192.168.0.1, DNS 84.54.128.100 and 8.8.8.8. PTZ and separate tracking configuration are outside this tested path.
+Hardware 1.0 with firmware 3.2.0 Build 251111 Rel.66535n passed separate activation, modern site settings, ONVIF port-80 IP/mask/gateway and HTTPS DNS stages. GUI Keep existing firmware passed these stages together in a continuous factory-reset run. The inspected 3.2.0 to 3.2.1 update is enabled for its first hardware test; other sources remain blocked. The tested assignment is 192.168.0.170/24, gateway 192.168.0.1, DNS 84.54.128.100 and 8.8.8.8. PTZ and separate tracking configuration are outside this tested path.

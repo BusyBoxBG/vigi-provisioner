@@ -8,8 +8,9 @@ Factory-to-static-IP provisioning for TP-Link VIGI cameras on an isolated corpor
 | --- | --- | --- | --- |
 | TP-Link VIGI C320I | V1.20 (device may report 1.20 or 1.2) | Preserve 2.0.4 Build 241101; upgrade 2.0.4 → 2.2.1 Build 260605; provision 2.2.1 | Activation, supported configuration, static IPv4/gateway and DNS; preserved-firmware GUI and upgrade/configuration hardware runs passed |
 | TP-Link VIGI C340S | V1 (device reports 1.0) | Preserve 2.0.3 Build 240412; provision installed 3.2.1 Build 260320; continuous GUI 2.0.3 → 2.5.1 Build 250327 → 3.2.1 | Complete GUI initialization, both real upgrades, configuration, ONVIF networking, DNS and inventory metadata passed |
+| TP-Link VIGI C540S | V1 (device reports 1.0) | Preserve 3.2.0 Build 251111 | Continuous factory-reset GUI activation, settings, motion actions off, ONVIF networking, DNS and metadata passed; 3.2.1 upgrade test pending |
 
-C540S V1 (hardware 1.0), firmware **3.2.0 Build 251111 Rel.66535n**, has now passed initialization, all site settings, ONVIF port-80 networking and saved/active DNS verification as separate hardware stages. Its GUI path is enabled with **Keep existing firmware**; one continuous factory-reset GUI run remains to be confirmed. C540S firmware upgrading is blocked.
+C540S V1 (hardware 1.0), firmware **3.2.0 Build 251111 Rel.66535n**, passed a continuous factory-reset GUI run: activation, site configuration, motion actions off, ONVIF port-80 networking, inventory metadata and saved/active DNS. The approved **3.2.0 to 3.2.1 Build 260320 Rel.24009n** upgrade path is implemented for its first hardware test. Upload and target configuration are not yet hardware-verified. Other source versions remain blocked.
 
 C320I V1, C420I, C330, C430 and InSight S345S/S445S entries remain catalog-only until separately tested. Tested revisions do not establish support for other revisions or firmware versions.
 

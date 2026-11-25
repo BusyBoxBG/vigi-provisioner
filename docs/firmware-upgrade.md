@@ -47,3 +47,14 @@ PYTHONPATH=src python -m vigi_provisioner.vigi_c340s_upgrade \
 Only after reviewing preflight, repeat with `--execute` for a real upgrade. For the latest stage, use its inspected original ZIP and `--stage latest`. Each stage requires its own confirmation and hardware verification.
 
 The continuous C340S GUI chain is now hardware-verified: both actual upgrades, certificate reapproval/fresh login after each, modern configuration selection, static networking and DNS completed in one run on 2026-11-24. The first target-already-installed 3.2.1 factory-reset GUI branch also passed, without repeating uploads. See [completed GUI evidence](test-gui.md#completed-continuous-c340s-hardware-run) and [tested model revisions](../README.md#tested-camera-models).
+
+## C540S V1 UN: first upgrade experiment
+
+The official [3.2.1 release notes](https://static.tp-link.com/upload/firmware/2026/202605/20260519/Release%20Note%20VIGI%20C540S(UN)%201.0_3.2.1%20Build%20260320.pdf) specify minimum 2.5.0 Build 250304 Rel.47276n. Our first permitted source is narrower: 3.2.0 Build 251111 Rel.66535n only. No bridge is needed for this source. The notes remove beta People Counting mode; downgrade availability must not be assumed.
+
+Target: 3.2.1 Build 260320 Rel.24009n. Image: `C540S_1.0_en_3.2.1_Build_260320_Rel.24009n_up_boot_signed.bin`.
+
+- ZIP SHA-256: `052bd497c2a86d159eafdd9024d541d8a7428daeee323d25c528eab493802145`.
+- Image SHA-256: `7a392f0e402a5c69d3cfb74eb291cc07a4ceaf504b28831036ecaa2cbd37fc0d`.
+
+The standalone command defaults to preflight. `--execute` plus typed confirmation sends one real pinned HTTPS upload and waits up to ten minutes for authenticated model/hardware/MAC and target-version readback on ONVIF 80. The GUI preflights its approved image before activation, then upgrades and continues with fresh login and modern configuration. Failed or uncertain upgrades stop all site/network stages. No automatic upload resend is allowed. First hardware execution is pending; preserved 3.2.0 full GUI provisioning passed.

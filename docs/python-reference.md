@@ -848,3 +848,9 @@ The C340S module also exposes inspect_latest_image, read_identity and upgrade_st
 ## vigi_motion_actions.py
 
 Targets an already-configured inventory camera to disable motion-event processing actions only. It can update the nine action booleans in the local motion profile, verifies authenticated model/MAC (and Device ID where returned), writes only motion_notif_list, then verifies all exposed actions off and unchanged detector/schedule readback. It does not run firmware, network or full provisioning stages. Use --legacy only for the inspected legacy motion read format.
+
+### vigi_c540s_upgrade.py
+
+C540S V1 UN firmware experiment for the exact 3.2.0 to 3.2.1 route. Defines source, target, filename and SHA-256 values; checks the ZIP/image, inventory, discovery identity and authenticated ONVIF model/hardware/MAC; performs one pinned HTTPS upload after typed confirmation; polls target firmware without resending. Standalone defaults to preflight. The GUI workflow calls the image inspector, identity reader and upgrade stage before configuration. No PTZ movement commands are sent.
+
+`vigi_firmware_cache.import_c540s_latest` imports the inspected local ZIP atomically and records the cached image paths and hashes without camera I/O.

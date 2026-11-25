@@ -23,7 +23,7 @@ class C540SWorkflowTests(unittest.TestCase):
             pin=None,firmware_file=None,skip_firmware=True,activation_format="auto")
 
     def test_gui_preserve_and_upgrade_rejection(self):
-        for mode in ("approved","profile",None):
+        for mode in ("profile",None):
             app=Application(self.database,self.args.config)
             with patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch:
                 with self.assertRaises(ValueError): app.start(self.device_id,firmware_mode=mode)
@@ -47,6 +47,7 @@ class C540SWorkflowTests(unittest.TestCase):
                     input="192.168.0.170",getpass="offline-test",login="/test",selected_interface={},pin_after_network_move="00"*32,
                     get_device_information=dict(Model="VIGI C540S",HardwareId="1.0",FirmwareVersion=firmware))
                 for name,value in values.items(): stack.enter_context(patch.object(workflow,name,return_value=value))
+                stack.enter_context(patch("vigi_provisioner.vigi_c540s_upgrade.read_identity",return_value=(values["get_device_information"],80)))
                 steps={name:stack.enter_context(patch.object(workflow,name)) for name in (
                     "configure_device_alias","configure_region","configure_video","configure_platform_access","configure_osd","configure_audio",
                     "configure_motion_detection","configure_login_error","configure_network","configure_dns")}
@@ -61,3 +62,34 @@ class C540SWorkflowTests(unittest.TestCase):
                     self.assertEqual(steps["configure_network"].call_args.args[0]["onvif_port"],80)
                     steps["configure_dns"].assert_called_once()
                 upload.assert_not_called()
+
+    def test_gui_approved_image_is_c540s_checked(self):
+        app=Application(self.database,self.args.config)
+        app.catalog_path="catalog.toml"
+        app.firmware_dir="firmware"
+        with closing(sqlite3.connect(self.database)) as db,db:
+            db.execute("UPDATE camera_inventory SET catalog_id=? WHERE device_id=?",("c540s-v1",self.device_id))
+        model=dict(id="c540s-v1",model="VIGI C540S",hardware_version="1",region="UN")
+        with patch("vigi_provisioner.vigi_test_gui.load_catalog",return_value=[model]), patch("vigi_provisioner.vigi_test_gui.approved_image",return_value=Path("approved.bin")), patch("vigi_provisioner.vigi_c540s_upgrade.inspect_latest_image") as inspect, patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch, patch("vigi_provisioner.vigi_test_gui.threading.Thread"):
+            app.start(self.device_id,firmware_mode="approved")
+            inspect.assert_called_once()
+            self.assertNotIn("--skip-firmware",launch.call_args.args[0])
+            self.assertIn("--firmware-file",launch.call_args.args[0])
+
+    def test_failed_upgrade_stops_site_configuration(self):
+        from vigi_provisioner import vigi_c540s_upgrade as upgrade
+        self.args.skip_firmware=False
+        self.args.firmware_file="approved.bin"
+        observation=dict(ip="192.168.0.60",mac="c0-3a-55-55-ba-40",model="VIGI C540S",factory_flag=0,serial="TP1"+self.device_id+"040")
+        with ExitStack() as stack:
+            for name,value in dict(discover=[observation],approve_observed_pin="00"*32,CameraHTTPS=Mock(),confirm_factory=None,detect_activation_format="modern",input="192.168.0.170",getpass="offline-test",login="/test").items():
+                stack.enter_context(patch.object(workflow,name,return_value=value))
+            stack.enter_context(patch.object(upgrade,"inspect_latest_image",return_value=b"image"))
+            stack.enter_context(patch.object(upgrade,"read_identity",return_value=({"FirmwareVersion":upgrade.SOURCE},80)))
+            upload=stack.enter_context(patch.object(upgrade,"upgrade_stage",side_effect=workflow.ProvisioningError("Upgrade unverified")))
+            site=stack.enter_context(patch.object(workflow,"configure_device_alias"))
+            network=stack.enter_context(patch.object(workflow,"configure_network"))
+            with self.assertRaises(workflow.ProvisioningError):workflow.provision(self.args)
+            upload.assert_called_once()
+            site.assert_not_called()
+            network.assert_not_called()

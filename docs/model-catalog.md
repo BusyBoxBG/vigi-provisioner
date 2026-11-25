@@ -70,3 +70,7 @@ C340S V1 can now run the staged-tested full configuration path in Keep existing 
 Use **Import local 3.2.1 ZIP** on the C340S V1 model row and enter `/root/vigi-c340s-3.2.1.zip` (or its actual server path). The server copies it to a temporary cache location, checks the exact inspected ZIP and image hashes, then records it as the approved default. No Internet or camera access is involved. This importer supports only the inspected C340S V1 UN 3.2.1 package; arbitrary imports remain unsupported. Failed imports retain the previous default.
 
 For the intermediate package, the existing `/root/vigi-c340s-2.5.1.zip` is sufficient as a checked fallback when launching the GUI as root; override its location with `--c340s-bridge-package`. Online systems can instead use Prepare intermediate 2.5.1. Both package paths are checked before a C340S approved-update worker starts.
+
+## C540S approved local target
+
+The C540S V1 UN catalog row supports **Import local 3.2.1 ZIP** for offline Ubuntu deployment. Import verifies the inspected C540S ZIP and image hashes before setting its approved image. Link the inventory camera to this exact catalog row and choose approved updating. Only source 3.2.0 Build 251111 Rel.66535n is accepted for the first upgrade experiment; installed target 3.2.1 Build 260320 Rel.24009n is skipped. Catalog selection alone never bypasses these checks. Full preserved-firmware GUI provisioning has passed; first upgrade hardware execution is pending.
