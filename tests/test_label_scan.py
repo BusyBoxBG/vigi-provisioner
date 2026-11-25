@@ -45,3 +45,30 @@ class LabelScanTests(unittest.TestCase):
         self.assertFalse(parse_label_stream("TP11326062CFD849E902999")["ready"])
         for raw in (None,"X"*4097):
             with self.assertRaises(ValueError):parse_label_stream(raw)
+
+class DiscoveryCrosscheckTests(unittest.TestCase):
+    def setUp(self):
+        self.fields=parse_label_stream(QR+MAC+SERIAL)["fields"]
+        self.camera=dict(ip="192.168.0.60",mac="18-69-45-9f-31-f7",model="VIGI C320I",factory_flag=0,serial=QR,onvif_endpoint="http://192.168.0.60:80/onvif/device_service")
+
+    def test_matching_pair_and_identical_repeats(self):
+        from vigi_provisioner.vigi_label_scan import crosscheck_discovery
+        result=crosscheck_discovery(self.fields,[self.camera,dict(self.camera)])
+        self.assertTrue(result["matched"])
+        self.assertEqual(result["camera"]["model"],"VIGI C320I")
+        self.assertNotIn("label_serial",result["camera"])
+
+    def test_identity_conflicts(self):
+        from vigi_provisioner.vigi_label_scan import crosscheck_discovery
+        for changed in (dict(mac="c0-3a-55-55-ba-40"),dict(serial="TP1CB7516E6763362E22040"),dict(ip="192.168.0.61"),dict(model="VIGI C540S")):
+            self.assertFalse(crosscheck_discovery(self.fields,[self.camera,dict(self.camera,**changed)])["matched"])
+
+    def test_missing_uninitialized_or_device_id_not_confirmed(self):
+        from vigi_provisioner.vigi_label_scan import crosscheck_discovery
+        for cameras in ([],[dict(self.camera,factory_flag=1)],[dict(self.camera,serial=None)]):
+            self.assertFalse(crosscheck_discovery(self.fields,cameras)["matched"])
+
+    def test_unrelated_camera_different_ip_does_not_prevent_match(self):
+        from vigi_provisioner.vigi_label_scan import crosscheck_discovery
+        other=dict(self.camera,mac="c0-3a-55-55-ba-40",serial="TP1CB7516E6763362E22040",ip="192.168.0.61")
+        self.assertTrue(crosscheck_discovery(self.fields,[self.camera,other])["matched"])

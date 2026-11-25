@@ -276,3 +276,5 @@ Both C340S test units now run 3.2.1. The earlier preserved 2024 unit was used fo
 ## Scanner-assisted inventory
 
 The GUI accepts keyboard-scanner QR and barcode input for one label at a time, including joined codes and repeats without suffixes. It detects Device ID, MAC and lowercase serial, pauses for **Accept detected fields**, and leaves network/model review and **Save inventory** to the operator. Ambiguous or unfamiliar formats require manual entry. See [scanner instructions](docs/test-gui.md#qr-and-barcode-scanner-input).
+
+Scanner inventory also offers **Cross-check with discovery** to compare the detected Device ID and MAC against a fresh factory-camera probe and show the discovered model/IP/ONVIF endpoint. Printed label serial is not independently verified by discovery.

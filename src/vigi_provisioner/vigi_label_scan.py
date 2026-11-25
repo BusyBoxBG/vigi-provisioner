@@ -85,3 +85,38 @@ def parse_label_stream(raw):
     else:
         status = "Unrecognized input. Clear and rescan, or enter fields manually."
     return dict(fields=fields, ready=ready, status=status)
+
+
+def crosscheck_discovery(fields, cameras):
+    """Compare label identity with factory-state UDP observations; serial stays unverified."""
+    from .vigi_discovery import decode_device_id
+    from .vigi_pin_inventory import normalize_mac
+    expected_id = fields["device_id"].upper()
+    expected_mac = normalize_mac(fields["mac_address"])
+    matches, related = [], []
+    for camera in cameras:
+        if camera.get("factory_flag") != 0:
+            continue
+        try:
+            mac = normalize_mac(camera.get("mac") or "")
+        except ValueError:
+            continue
+        device_id = camera.get("device_id") or decode_device_id(camera.get("serial"))
+        same_mac, same_id = mac == expected_mac, device_id == expected_id
+        if same_mac and same_id:
+            matches.append(camera)
+        elif same_mac or same_id:
+            related.append(camera)
+    if related:
+        return dict(matched=False, status="Discovery identity conflict. Device ID and MAC must both match.")
+    if not matches:
+        return dict(matched=False, status="No factory-state camera confirmed both scanned Device ID and MAC. Check connection and retry.")
+    signatures = {(c.get("ip"), c.get("model")) for c in matches}
+    if len(signatures) != 1 or any(
+        c.get("factory_flag") == 0 and c.get("ip") == matches[0].get("ip") and c not in matches
+        for c in cameras
+    ):
+        return dict(matched=False, status="Discovery reported conflicting addresses, models or devices at the same IP.")
+    camera = matches[0]
+    return dict(matched=True, status="Discovery matched Device ID and MAC. Label serial is scanner-only; discovery does not verify it.",
+                camera={key: camera.get(key) for key in ("ip","model","device_name","onvif_endpoint","factory_flag")})
