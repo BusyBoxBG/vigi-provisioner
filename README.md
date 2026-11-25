@@ -272,3 +272,7 @@ Approved packages are cached under `firmware/` beside the site profile, with che
 The integrated C340S workflow selects the required upgrades and actual configuration schema from authenticated firmware readback. Each real upgrade has its own confirmation and verification; already-installed stages are skipped, and unknown source versions or unverified outcomes stop the run. See [C340S GUI workflow](docs/test-gui.md#c340s-approved-update-and-provisioning) and [firmware packages and prerequisites](docs/firmware-upgrade.md#c340s-v1-staged-upgrade-experiment).
 
 Both C340S test units now run 3.2.1. The earlier preserved 2024 unit was used for the successful continuous two-stage GUI test. Its earlier preserved-firmware results remain valid, but repeating the actual old-to-new upgrade route requires another older-stock unit.
+
+## Scanner-assisted inventory
+
+The GUI accepts keyboard-scanner QR and barcode input for one label at a time, including joined codes and repeats without suffixes. It detects Device ID, MAC and lowercase serial, pauses for **Accept detected fields**, and leaves network/model review and **Save inventory** to the operator. Ambiguous or unfamiliar formats require manual entry. See [scanner instructions](docs/test-gui.md#qr-and-barcode-scanner-input).

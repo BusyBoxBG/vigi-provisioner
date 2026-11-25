@@ -111,3 +111,17 @@ For offline use copy `vigi-c540s-3.2.1.zip` and `vigi-c540s-2.5.1.zip` to `/root
 Link the inventory record to C540S V1 UN and select **Update to default approved firmware after initialization**. Older eligible firmware is routed through 2.5.1, then the target; 2.5.0 skips the intermediate and goes directly to the target. Already-installed intermediate or target versions are skipped as appropriate. Each upload needs its own `UPGRADE <Device ID> TO <version>` confirmation. Fresh identity readback, certificate approval when changed, and fresh login follow every stage. Site settings begin only after the final target is verified. No upload is automatically resent. The intermediate route remains untested on hardware; unfamiliar activation resources still stop before activation. Separate PTZ/tracking configuration is outside this path.
 
 Label serial numbers are normalized to lowercase when added or edited, including uppercase barcode-scanner input. For example, `22630K7001456` is stored as `22630k7001456`. Existing uppercase serials are normalized when the GUI initializes the inventory; provisioning status is retained. Device Name and OSD use the resulting lowercase serial on the next provisioning run. This inventory normalization does not itself change settings on a camera.
+
+## QR and barcode scanner input
+
+In Add camera, click **Scanner input** and scan one camera label. Keyboard-style scanners can send joined codes without a suffix. The parser buffers the stream, accepts codes in any order and ignores identical repeats. CR, LF, Tab, spaces and `|` separators are also supported; Tab is retained in the scan box rather than moving focus. Raw input is processed locally by the GUI server and is not saved to inventory.
+
+Initial recognized formats:
+
+- QR wrapper `TP1` plus 17 hexadecimal Device ID characters plus `020` or `040`.
+- Compact 12-character hexadecimal MAC barcode.
+- 13-character alphanumeric label serial starting with a digit, normalized to lowercase.
+
+These rules cover the supplied C320I scanner sample and tested label shapes; they are not a promise for every TP-Link label. Numeric-only joined codes can admit multiple valid splits. Ambiguous, incomplete, conflicting or unfamiliar input does not enable acceptance; scan with separators or select **Use manual entry**. The scan buffer is limited to 4096 characters. **Clear / Next camera** resets the captured identity and starts a new collection.
+
+When all three fields are unambiguous, capture pauses. Move the label away or stop the scanner before clicking **Accept detected fields**: pausing the webpage cannot stop a physical keyboard scanner from typing into another focused field. Acceptance copies Device ID, MAC and serial into the form without saving. Check the model/hardware and enter the intended IP/netmask/gateway, then click **Save inventory**. Save clears the identity/scan collection and retains model/network defaults for review on the next camera. Scanner input never starts discovery, activation or provisioning. Existing duplicate identity/address checks still apply, and provisioning separately verifies camera identity.

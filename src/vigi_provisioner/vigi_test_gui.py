@@ -12,6 +12,7 @@ from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from .vigi_label_scan import parse_label_stream
 from .vigi_pin_inventory import normalize_mac
 from .vigi_onvif import get_device_information
 from .vigi_discovery import discover, decode_device_id
@@ -33,7 +34,15 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <main><section><h2>Connected factory default cameras</h2>
 <button id="probe" onclick="probe()">Discover uninitialized cameras</button>
 <p id="probeStatus" role="status"></p><pre id="probeDetails" hidden></pre>
-</section><div class="grid"><section><h2>Add camera</h2><form id="add">
+</section><div class="grid"><section><h2>Add camera</h2>
+<div id="scanner"><h3>Scan one camera label</h3>
+<p><small>Click the scan box, then scan the QR and both barcodes in any order. Joined codes and repeats are accepted for tested label formats. Review before saving.</small></p>
+<label for="scanInput">Scanner input</label><textarea id="scanInput" rows="3" maxlength="4096" autocomplete="off" spellcheck="false" style="box-sizing:border-box;width:100%;padding:10px"></textarea>
+<p id="scanStatus" role="status">Ready for scanner input.</p><p id="scanFields"></p>
+<button type="button" id="scanAccept" disabled>Accept detected fields</button>
+<button type="button" id="scanClear">Clear / Next camera</button>
+<button type="button" id="scanManual">Use manual entry</button></div>
+<form id="add">
 <label>Device ID</label><input name="device_id" required>
 <label>MAC address</label><input name="mac_address" required>
 <label>Label serial number</label><input name="label_serial" required>
@@ -91,7 +100,15 @@ let details=document.getElementById("probeDetails");details.hidden=s.discovered.
 details.textContent=JSON.stringify(s.discovered,null,2);
 pending=s.prompt;document.getElementById("prompt").hidden=!pending;if(pending){document.getElementById("question").textContent=pending.text;document.getElementById("answer").type=pending.secret?"password":"text"}
 }catch(e){document.getElementById("message").textContent=e.message}}
-document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";refresh()}catch(e){document.getElementById("message").textContent=e.message}};
+let scanTimer=null,scanRevision=0,scanResult=null,scanAccepted=false;
+const scanInput=document.getElementById("scanInput"),scanAccept=document.getElementById("scanAccept");
+function clearScan(manual=false){clearTimeout(scanTimer);scanRevision++;scanInput.value="";scanInput.disabled=manual;scanInput.readOnly=false;scanResult=null;scanAccepted=false;scanAccept.disabled=true;document.getElementById("scanFields").textContent="";document.getElementById("scanStatus").textContent=manual?"Manual entry selected.":"Ready for the next camera label.";if(!manual){for(let key of ["device_id","mac_address","label_serial"])document.getElementById("add").elements[key].value="";scanInput.focus()}}
+scanInput.addEventListener("keydown",e=>{if(scanInput.readOnly){e.preventDefault();return}if(e.key==="Tab"){e.preventDefault();scanInput.setRangeText("|",scanInput.selectionStart,scanInput.selectionEnd,"end");scanInput.dispatchEvent(new Event("input"))}});
+scanInput.addEventListener("input",()=>{scanAccepted=false;scanAccept.disabled=true;scanResult=null;let revision=++scanRevision;clearTimeout(scanTimer);scanTimer=setTimeout(async()=>{try{let result=await api("/api/scan",{raw:scanInput.value});if(revision!==scanRevision)return;scanResult=result;document.getElementById("scanStatus").textContent=result.status;let f=result.fields;document.getElementById("scanFields").textContent="Device ID: "+(f.device_id||"waiting")+" | MAC: "+(f.mac_address||"waiting")+" | Serial: "+(f.label_serial||"waiting");scanAccept.disabled=!result.ready;if(result.ready){scanInput.readOnly=true;document.getElementById("scanStatus").textContent+=" Capture paused. Move the label away from the scanner before accepting."}}catch(error){if(revision===scanRevision)document.getElementById("scanStatus").textContent=error.message}},250)});
+scanAccept.onclick=()=>{if(!scanResult?.ready)return;let form=document.getElementById("add");for(let key of ["device_id","mac_address","label_serial"])form.elements[key].value=scanResult.fields[key];scanAccepted=true;scanAccept.disabled=true;document.getElementById("scanStatus").textContent="Fields accepted. Check model and network assignment, then Save inventory.";form.elements.approved_ipv4.focus()};
+document.getElementById("scanClear").onclick=()=>clearScan(false);
+document.getElementById("scanManual").onclick=()=>clearScan(true);
+document.getElementById("add").onsubmit=async e=>{e.preventDefault();try{if(scanInput.value&&!scanAccepted)throw Error("Accept the detected fields or choose manual entry before saving.");await api("/api/camera",Object.fromEntries(new FormData(e.target)));document.getElementById("message").textContent="Inventory saved";clearScan(false);refresh()}catch(e){document.getElementById("message").textContent=e.message}};
 async function probe(){try{await api("/api/discover",{});refresh()}catch(e){document.getElementById("probeStatus").textContent=e.message}}
 async function start(){try{let id=document.querySelector("input[name=selected]:checked")?.value;if(!id)throw Error("Select a camera");await api("/api/start",{device_id:id,firmware_mode:document.getElementById("firmwareMode").value});refresh()}catch(e){document.getElementById("message").textContent=e.message}}
 async function answer(){try{await api("/api/answer",{id:pending.id,value:document.getElementById("answer").value});document.getElementById("answer").value="";refresh()}catch(e){document.getElementById("message").textContent=e.message}}
@@ -467,6 +484,9 @@ def main():
                     with app.lock:
                         rows = load_catalog(catalog_path)
                     self.reply(200, dict(models=rows, path=str(catalog_path)))
+                    return
+                elif self.path == "/api/scan":
+                    self.reply(200, parse_label_stream(data.get("raw")))
                     return
                 elif self.path == "/api/model/save":
                     row = validate_model(data)
