@@ -851,6 +851,6 @@ Targets an already-configured inventory camera to disable motion-event processin
 
 ### vigi_c540s_upgrade.py
 
-C540S V1 UN firmware experiment for the exact 3.2.0 to 3.2.1 route. Defines source, target, filename and SHA-256 values; checks the ZIP/image, inventory, discovery identity and authenticated ONVIF model/hardware/MAC; performs one pinned HTTPS upload after typed confirmation; polls target firmware without resending. Standalone defaults to preflight. The GUI workflow calls the image inspector, identity reader and upgrade stage before configuration. No PTZ movement commands are sent.
+C540S V1 UN upgrade support: the hardware-confirmed 3.2.0 to 3.2.1 route and an offline-tested older-stock intermediate route. `upgrade_route` selects bridge/latest, skips bridge for 2.5.0 and eligible newer sources, skips an installed target and rejects unsupported versions. `require_stage` prevents wrong-stage uploads and downgrades. Defines source, target, filename and SHA-256 values; checks the ZIP/image, inventory, discovery identity and authenticated ONVIF model/hardware/MAC; performs one pinned HTTPS upload after typed confirmation; polls target firmware without resending. Standalone defaults to preflight. The GUI workflow calls the image inspector, identity reader and upgrade stage before configuration. No PTZ movement commands are sent.
 
 `vigi_firmware_cache.import_c540s_latest` imports the inspected local ZIP atomically and records the cached image paths and hashes without camera I/O.

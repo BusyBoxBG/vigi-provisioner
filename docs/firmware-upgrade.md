@@ -48,13 +48,26 @@ Only after reviewing preflight, repeat with `--execute` for a real upgrade. For 
 
 The continuous C340S GUI chain is now hardware-verified: both actual upgrades, certificate reapproval/fresh login after each, modern configuration selection, static networking and DNS completed in one run on 2026-11-24. The first target-already-installed 3.2.1 factory-reset GUI branch also passed, without repeating uploads. See [completed GUI evidence](test-gui.md#completed-continuous-c340s-hardware-run) and [tested model revisions](../README.md#tested-camera-models).
 
-## C540S V1 UN: first upgrade experiment
+## C540S V1 UN upgrade routes
 
-The official [3.2.1 release notes](https://static.tp-link.com/upload/firmware/2026/202605/20260519/Release%20Note%20VIGI%20C540S(UN)%201.0_3.2.1%20Build%20260320.pdf) specify minimum 2.5.0 Build 250304 Rel.47276n. Our first permitted source is narrower: 3.2.0 Build 251111 Rel.66535n only. No bridge is needed for this source. The notes remove beta People Counting mode; downgrade availability must not be assumed.
+The [3.2.1 release notes](https://static.tp-link.com/upload/firmware/2026/202605/20260519/Release%20Note%20VIGI%20C540S(UN)%201.0_3.2.1%20Build%20260320.pdf) specify minimum 2.5.0 Build 250304 Rel.47276n. The [2.5.1 notes](https://static.tp-link.com/upload/firmware/2025/202504/20250418/Release%20note%20VIGI%20C540S(UN)_V1_2.5.1_Build%20250327.pdf) allow earlier firmware except 2.5.0 and prohibit downgrading to previous versions. Version 2.5.0 must go directly to 3.x. These rules apply to C540S V1 UN, not the C340S package.
 
-Target: 3.2.1 Build 260320 Rel.24009n. Image: `C540S_1.0_en_3.2.1_Build_260320_Rel.24009n_up_boot_signed.bin`.
+| Installed firmware | Planned stages | Hardware evidence |
+| --- | --- | --- |
+| Versions 1.x or 2.x earlier than 2.5.0, with a valid build date | C540S 2.5.1 then approved 3.2.1 | Offline-tested; no physical older-stock camera available |
+| 2.5.0 Build 250304 or later build of 2.5.0 | Direct 3.2.1; never 2.5.1 | Vendor prerequisite; offline-tested |
+| Inspected 2.5.1 or 3.0.x through 3.2.0 | Direct 3.2.1 | Exact 3.2.0 Build 251111 Rel.66535n passed full GUI on hardware; other sources untested |
+| Exact target 3.2.1 Build 260320 Rel.24009n | No upload | Route skip covered offline |
+| Unknown, malformed, unsupported or newer versions | Stop | No downgrade or speculative upload |
+
+Intermediate image: `C540S_1.0_en_2.5.1_Build_250327_Rel.67991n_up_boot-signed.bin`.
+
+- ZIP SHA-256: `03db6356ad7f23157b2e07b8290cf83669e6b9e49e3bbc77b0220f2f0a22bb31`.
+- Image SHA-256: `2ff77f1ca4cc40752aefd275caf6c655ec975d1359e61f7f8ddb3a050a6c40a9`.
+
+Target image: `C540S_1.0_en_3.2.1_Build_260320_Rel.24009n_up_boot_signed.bin`.
 
 - ZIP SHA-256: `052bd497c2a86d159eafdd9024d541d8a7428daeee323d25c528eab493802145`.
 - Image SHA-256: `7a392f0e402a5c69d3cfb74eb291cc07a4ceaf504b28831036ecaa2cbd37fc0d`.
 
-The standalone command defaults to preflight. `--execute` plus typed confirmation sends one real pinned HTTPS upload and waits up to ten minutes for authenticated model/hardware/MAC and target-version readback on ONVIF 80. The GUI preflights its approved image before activation, then upgrades and continues with fresh login and modern configuration. Failed or uncertain upgrades stop all site/network stages. No automatic upload resend is allowed. First hardware execution is pending; preserved 3.2.0 full GUI provisioning passed.
+Standalone `vigi_c540s_upgrade --stage bridge|latest` defaults to preflight. `--execute` plus typed confirmation sends one pinned HTTPS upload and polls authenticated identity and target readback for up to ten minutes. Port 80 is preferred with fallback 2020 for older firmware. Standalone runs one stage only. GUI integrates the required stages, checks all needed packages before uploading, and re-establishes pinned HTTPS and login after each stage before continuing. Failed or uncertain upgrades stop site/network configuration; no automatic upload resend is allowed. The approved target remains restricted to the inspected 3.2.1 image; changing catalog text cannot authorize an arbitrary image. Unknown factory activation signatures still stop safely.

@@ -718,6 +718,10 @@ def provision(args):
         if not config.firmware_file:
             raise ProvisioningError("C540S updating requires the inspected approved 3.2.1 image.")
         inspect_latest_image(config.firmware_file)
+        from .vigi_c540s_upgrade import inspect_package, STAGES
+        c540s_bridge = Path(getattr(args, "c540s_bridge_package", None) or Path.home() / "vigi-c540s-2.5.1.zip")
+        if c540s_bridge.exists():
+            inspect_package(c540s_bridge, STAGES["bridge"])
     if skip_firmware:
         print("Firmware upgrade disabled for this run.", flush=True)
     bridge_package = Path(getattr(args, "c340s_bridge_package", None) or Path.home() / "vigi-c340s-2.5.1.zip")
@@ -845,17 +849,22 @@ def provision(args):
             c340s_legacy = info.get("FirmwareVersion") == SOURCE
             print(f"Verified C340S firmware {info.get('FirmwareVersion')}; configuration schema: {'legacy' if c340s_legacy else 'modern'}; ONVIF port {c340s_port}.", flush=True)
         elif expected_model == "VIGI C540S":
-            from .vigi_c540s_upgrade import read_identity, inspect_latest_image, upgrade_stage, STAGES, SOURCE
+            from .vigi_c540s_upgrade import read_identity, inspect_latest_image, inspect_package, upgrade_stage, upgrade_route, STAGES, SOURCE
             info, _ = read_identity(password, compact_mac)
-            if activation_format != "modern" or info.get("FirmwareVersion") not in {SOURCE, STAGES["latest"].target}:
-                raise ProvisioningError("C540S firmware or activation format is outside the inspected path. No site or network settings sent.")
-            if not skip_firmware:
-                image = inspect_latest_image(config.firmware_file)
-                upgraded = upgrade_stage(camera, path, password, compact_mac, args.device_id, STAGES["latest"], image, input)
-                if upgraded:
-                    pin = pin_after_network_move(CAMERA_IP, pin, independently_verified=args.pin is not None)
-                    camera = CameraHTTPS(pin)
-                    path = login(camera, password)
+            if skip_firmware:
+                if activation_format != "modern" or info.get("FirmwareVersion") not in {SOURCE, STAGES["latest"].target}:
+                    raise ProvisioningError("C540S preserved configuration is limited to tested 3.2.0/3.2.1 firmware.")
+            else:
+                route = upgrade_route(info.get("FirmwareVersion"))
+                # Validate all required files before the first upload.
+                images = {name: inspect_package(c540s_bridge, STAGES[name]) if name == "bridge"
+                          else inspect_latest_image(config.firmware_file) for name in route}
+                for name in route:
+                    upgraded = upgrade_stage(camera, path, password, compact_mac, args.device_id, STAGES[name], images[name], input)
+                    if upgraded:
+                        pin = pin_after_network_move(CAMERA_IP, pin, independently_verified=args.pin is not None)
+                        camera = CameraHTTPS(pin)
+                        path = login(camera, password)
                 info, _ = read_identity(password, compact_mac)
                 if info.get("FirmwareVersion") != STAGES["latest"].target:
                     raise ProvisioningError("C540S target firmware was not verified. No site settings sent.")
@@ -979,6 +988,7 @@ def main():
     parser.add_argument("--activation-format", choices=("auto", "modern", "legacy-2024", "legacy-2.0.4"), default="auto",
                         help="Default auto verifies a known factory web-resource signature before activation")
     parser.add_argument("--c340s-bridge-package", help="Inspected C340S 2.5.1 ZIP; defaults to ~/vigi-c340s-2.5.1.zip")
+    parser.add_argument("--c540s-bridge-package", help="C540S 2.5.1 intermediate ZIP; defaults to ~/vigi-c540s-2.5.1.zip")
     parser.add_argument("--firmware-file", help="Explicit approved local firmware image, overriding the profile file")
     parser.add_argument("--skip-firmware", action="store_true",
                         help="Skip firmware inspection and upgrade even when enabled in the profile")

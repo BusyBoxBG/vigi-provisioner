@@ -70,7 +70,7 @@ class C540SWorkflowTests(unittest.TestCase):
         with closing(sqlite3.connect(self.database)) as db,db:
             db.execute("UPDATE camera_inventory SET catalog_id=? WHERE device_id=?",("c540s-v1",self.device_id))
         model=dict(id="c540s-v1",model="VIGI C540S",hardware_version="1",region="UN")
-        with patch("vigi_provisioner.vigi_test_gui.load_catalog",return_value=[model]), patch("vigi_provisioner.vigi_test_gui.approved_image",return_value=Path("approved.bin")), patch("vigi_provisioner.vigi_c540s_upgrade.inspect_latest_image") as inspect, patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch, patch("vigi_provisioner.vigi_test_gui.threading.Thread"):
+        with patch("vigi_provisioner.vigi_test_gui.load_catalog",return_value=[model]), patch("vigi_provisioner.vigi_test_gui.approved_image",return_value=Path("approved.bin")), patch("vigi_provisioner.vigi_c540s_upgrade.inspect_latest_image") as inspect, patch("vigi_provisioner.vigi_c540s_upgrade.inspect_package"), patch("vigi_provisioner.vigi_test_gui.subprocess.Popen") as launch, patch("vigi_provisioner.vigi_test_gui.threading.Thread"):
             app.start(self.device_id,firmware_mode="approved")
             inspect.assert_called_once()
             self.assertNotIn("--skip-firmware",launch.call_args.args[0])
@@ -93,3 +93,40 @@ class C540SWorkflowTests(unittest.TestCase):
             upload.assert_called_once()
             site.assert_not_called()
             network.assert_not_called()
+
+    def test_bridge_chain_and_direct_routes(self):
+        from vigi_provisioner import vigi_c540s_upgrade as upgrade
+        cases = (("2.0.4 Build 240913 Rel.123n",["bridge","latest"]),
+                 ("2.5.0 Build 250304 Rel.47276n",["latest"]),
+                 (upgrade.STAGES["bridge"].target,["latest"]),
+                 (upgrade.SOURCE,["latest"]),
+                 (upgrade.STAGES["latest"].target,[]))
+        for version, expected in cases:
+            with self.subTest(version=version), ExitStack() as stack:
+                state={"version":version}
+                self.args.skip_firmware=False
+                self.args.firmware_file="approved.bin"
+                self.args.c540s_bridge_package="bridge.zip"
+                observation=dict(ip="192.168.0.60",mac="c0-3a-55-55-ba-40",model="VIGI C540S",factory_flag=0,serial="TP1"+self.device_id+"040")
+                for name,value in dict(discover=[observation],approve_observed_pin="00"*32,CameraHTTPS=Mock(),confirm_factory=None,detect_activation_format="legacy-2024" if expected==["bridge","latest"] else "modern",input="192.168.0.170",getpass="offline-test",login="/test",pin_after_network_move="11"*32).items():
+                    stack.enter_context(patch.object(workflow,name,return_value=value))
+                stack.enter_context(patch.object(upgrade,"inspect_latest_image",return_value=b"latest"))
+                stack.enter_context(patch.object(upgrade,"inspect_package",return_value=b"bridge"))
+                stack.enter_context(patch.object(upgrade,"read_identity",side_effect=lambda *a: ({"FirmwareVersion":state["version"]},80)))
+                calls=[]
+                def upload(camera,path,password,mac,device_id,stage,image,confirm):
+                    name=next(n for n,spec in upgrade.STAGES.items() if spec==stage)
+                    self.assertEqual(upgrade.upgrade_route(state["version"])[0],name)
+                    calls.append(name)
+                    state["version"]=stage.target
+                    return True
+                stack.enter_context(patch.object(upgrade,"upgrade_stage",side_effect=upload))
+                steps={name:stack.enter_context(patch.object(workflow,name)) for name in (
+                    "configure_device_alias","configure_region","configure_video","configure_platform_access","configure_osd","configure_audio",
+                    "configure_motion_detection","configure_login_error","configure_network","configure_dns")}
+                workflow.provision(self.args)
+                self.assertEqual(calls,expected)
+                self.assertEqual(workflow.login.call_count,1+len(expected))
+                self.assertFalse(steps["configure_region"].call_args.kwargs["legacy_clock"])
+                self.assertEqual(steps["configure_network"].call_args.args[0]["onvif_port"],80)
+                steps["configure_dns"].assert_called_once()

@@ -28,12 +28,46 @@ class UpgradeStage:
     image_sha256: str
     zip_sha256: str
 
+BRIDGE_URL = "https://static.tp-link.com/upload/firmware/2025/202504/20250418/VIGI%20C540S(UN)_V1_2.5.1%20Build%20250327%20Rel.67991n.zip"
 STAGES = {
+    "bridge": UpgradeStage("earlier than 2.5.0", "2.5.1 Build 250327 Rel.67991n",
+        "C540S_1.0_en_2.5.1_Build_250327_Rel.67991n_up_boot-signed.bin",
+        "2ff77f1ca4cc40752aefd275caf6c655ec975d1359e61f7f8ddb3a050a6c40a9",
+        "03db6356ad7f23157b2e07b8290cf83669e6b9e49e3bbc77b0220f2f0a22bb31"),
     "latest": UpgradeStage(SOURCE, "3.2.1 Build 260320 Rel.24009n",
         "C540S_1.0_en_3.2.1_Build_260320_Rel.24009n_up_boot_signed.bin",
         "7a392f0e402a5c69d3cfb74eb291cc07a4ceaf504b28831036ecaa2cbd37fc0d",
         "052bd497c2a86d159eafdd9024d541d8a7428daeee323d25c528eab493802145"),
 }
+
+def upgrade_route(current):
+    """Select a forward-only route from the vendor's version prerequisites."""
+    if current == STAGES["latest"].target:
+        return ()
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+) Build (\d{6}|\d{8})(?: Rel\.[A-Za-z0-9]+)?", current or "")
+    if not match:
+        raise ProvisioningError("C540S firmware version is unknown; no upgrade route selected.")
+    version = tuple(int(match[i]) for i in (1, 2, 3))
+    build = match[4]
+    from datetime import datetime
+    try:
+        date = datetime.strptime(build, "%y%m%d" if len(build) == 6 else "%Y%m%d")
+    except ValueError:
+        raise ProvisioningError("Invalid C540S firmware build date.") from None
+    if (1, 0, 0) <= version < (2, 5, 0):
+        return ("bridge", "latest")
+    if version == (2, 5, 0) and date >= datetime(2025, 3, 4):
+        return ("latest",)
+    if current == STAGES["bridge"].target or (3, 0, 0) <= version < (3, 2, 1):
+        return ("latest",)
+    raise ProvisioningError("C540S firmware is outside the approved forward upgrade routes.")
+
+
+def require_stage(current, stage):
+    route = upgrade_route(current)
+    if not route or STAGES[route[0]] != stage:
+        raise ProvisioningError("This C540S upgrade stage is not permitted from the installed version.")
+
 
 def inspect_package(path, stage):
     path = Path(path)
@@ -67,13 +101,12 @@ def upgrade_stage(camera, path, password, mac, device_id, stage, image, confirm)
     if current == stage.target:
         print(f"Target {stage.target} already installed; stage skipped.", flush=True)
         return False
-    if current != stage.source:
-        raise ProvisioningError(f"Upgrade stage requires {stage.source}; observed {current}.")
+    require_stage(current, stage)
     confirmation = f"UPGRADE {device_id} TO {stage.target.split()[0]}"
     if confirm(f"Type {confirmation} to install firmware (downgrade may be unavailable): ").strip() != confirmation:
         raise ProvisioningError("Confirmation did not match. No upload sent.")
     fresh, _ = read_identity(password, mac)
-    if fresh.get("FirmwareVersion") != stage.source:
+    if fresh.get("FirmwareVersion") != current:
         raise ProvisioningError("Source firmware changed during confirmation. No upload sent.")
     print(f"Starting C540S upgrade to {stage.target}. Keep power and Ethernet connected.", flush=True)
     _, result = camera.post("Request firmware upload URL", {"method": "do", "system": {"firmware_upgrade": {"type": "0"}}}, path=path)
@@ -103,7 +136,7 @@ def confirm_discovery(device_id, mac):
         raise ProvisioningError("Discovery reported conflicting camera identity.")
 
 def read_identity(password, mac):
-    for port in (80,):
+    for port in (80, 2020):
         endpoint = f"http://{CAMERA}:{port}/onvif/device_service"
         try:
             info = get_device_information(endpoint, "admin", password)
@@ -114,7 +147,7 @@ def read_identity(password, mac):
                 or not any(normalize_mac(i.get("mac", "")) == mac for i in interfaces)):
             raise ProvisioningError("Authenticated camera model, hardware or MAC differs.")
         return info, port
-    raise ProvisioningError("Cannot verify C540S through ONVIF port 80.")
+    raise ProvisioningError("Cannot verify C540S through ONVIF ports 80 or 2020.")
 
 def wait_for_target(password, mac, stage):
     deadline = time.monotonic() + 600
@@ -149,8 +182,7 @@ def run(args):
     if current == stage.target:
         print("Stage target already installed. No upload sent.")
         return
-    if current != stage.source:
-        raise ProvisioningError(f"This stage requires source firmware {stage.source}. No upload sent.")
+    require_stage(current, stage)
     if not args.execute:
         print("Preflight passed. No firmware uploaded. Repeat with --execute for a real upgrade.")
         return
@@ -160,7 +192,7 @@ def run(args):
     if input(f"Type {confirmation} to install firmware (downgrade may be unavailable): ").strip() != confirmation:
         raise ProvisioningError("Confirmation did not match. No upload sent.")
     fresh, _ = read_identity(password, mac)
-    if fresh.get("FirmwareVersion") != stage.source:
+    if fresh.get("FirmwareVersion") != current:
         raise ProvisioningError("Source firmware changed during confirmation. No upload sent.")
     print("Starting real C540S firmware upgrade. Keep power and Ethernet connected.", flush=True)
     _, result = camera.post("Request firmware upload URL", {"method": "do", "system": {"firmware_upgrade": {"type": "0"}}}, path=path)

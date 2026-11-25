@@ -53,3 +53,25 @@ class C540SUpgradeTests(unittest.TestCase):
         stage=upgrade.STAGES["latest"]
         with patch.object(upgrade.time,"monotonic",side_effect=[0,0]), patch.object(upgrade.time,"sleep"), patch.object(upgrade,"read_identity",return_value=({"FirmwareVersion":stage.target},80)):
             upgrade.wait_for_target("offline","30689353CC93",stage)
+
+    def test_route_selection_and_250_exception(self):
+        cases = {
+            "2.0.4 Build 240913 Rel.123n": ("bridge", "latest"),
+            "1.0.0 Build 230615": ("bridge", "latest"),
+            "2.5.0 Build 250304 Rel.47276n": ("latest",),
+            upgrade.STAGES["bridge"].target: ("latest",),
+            upgrade.SOURCE: ("latest",),
+            upgrade.STAGES["latest"].target: (),
+        }
+        for version, expected in cases.items():
+            with self.subTest(version=version):self.assertEqual(upgrade.upgrade_route(version),expected)
+        with self.assertRaises(ProvisioningError):
+            upgrade.require_stage("2.5.0 Build 250304 Rel.47276n",upgrade.STAGES["bridge"])
+        with self.assertRaises(ProvisioningError):
+            upgrade.require_stage("2.0.4 Build 240913",upgrade.STAGES["latest"])
+        for version in ("unknown", "2.5.0 Build 250101", "3.2.2 Build 260601", "2.0.4 Build 249999", "9.0.0 Build 260101"):
+            with self.subTest(version=version), self.assertRaises(ProvisioningError):upgrade.upgrade_route(version)
+
+    def test_bridge_never_downgrades_newer_firmware(self):
+        with self.assertRaises(ProvisioningError):upgrade.require_stage(upgrade.SOURCE,upgrade.STAGES["bridge"])
+        with self.assertRaises(ProvisioningError):upgrade.require_stage(upgrade.STAGES["latest"].target,upgrade.STAGES["bridge"])

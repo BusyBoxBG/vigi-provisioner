@@ -43,7 +43,7 @@ pre{white-space:pre-wrap;overflow:auto;background:#10242c;color:#cfe5df;padding:
 <label>Approved IP address</label><input name="approved_ipv4" value="192.168.0.150" required>
 <label>Netmask or prefix</label><input name="prefix" value="255.255.255.0" required>
 <label>Gateway</label><input name="gateway_ipv4" value="192.168.0.1" required>
-<button>Save inventory</button></form><p><small>Full provisioning: C320I hardware 1.20 and C340S V1; C540S V1 preserved 3.2.0 tested; approved 3.2.0 to 3.2.1 upgrade available for first hardware test. C340S approved updates use the intermediate 2.5.1 stage when needed. Other models can be recorded for future testing.</small></p></section>
+<button>Save inventory</button></form><p><small>Full provisioning: C320I hardware 1.20 and C340S V1; C540S V1 preserved 3.2.0 and full 3.2.0 to 3.2.1 upgrade tested; older-stock intermediate route has offline tests only. C340S approved updates use the intermediate 2.5.1 stage when needed. Other models can be recorded for future testing.</small></p></section>
 <div><section><h2>Camera inventory</h2><div style="overflow:auto"><table><thead><tr><th>Select</th><th>Device ID / MAC</th><th>Model / firmware</th><th>Serial / target</th><th>State</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
 <label for="firmwareMode">Firmware handling</label>
 <select id="firmwareMode" style="width:100%;padding:10px">
@@ -104,7 +104,7 @@ document.getElementById("approveForm").onsubmit=async e=>{e.preventDefault();if(
 let catalogModels=[];
 function chooseModel(){let m=catalogModels.find(x=>x.id===document.getElementById("catalogChoice").value);if(m){document.getElementById("cameraModel").value=m.model;document.getElementById("cameraHardware").value=m.hardware_version}}
 function sourceLink(parent,url,label){if(!url)return;let a=document.createElement("a");a.href=url;a.textContent=label;a.target="_blank";a.rel="noopener noreferrer";parent.append(a,document.createElement("br"))}
-async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Default ZIP");let cached=document.createElement("div");cached.textContent=m.approved_image?"Approved local image: "+m.approved_image:"Not downloaded / not approved";recorded.append(cached);let download=document.createElement("button");download.textContent="Download and approve default";download.disabled=!m.firmware_url;download.onclick=()=>approveFirmware(m,m.firmware_url,m.firmware_version);recorded.append(download);if(m.model==="VIGI C340S"||m.model==="VIGI C540S"){let local=document.createElement("button");local.textContent="Import local 3.2.1 ZIP";local.onclick=()=>{importModelId=m.id;document.getElementById("importPackage").value=m.model==="VIGI C540S"?"/root/vigi-c540s-3.2.1.zip":"/root/vigi-c340s-3.2.1.zip";document.getElementById("importForm").hidden=false;document.getElementById("importForm").scrollIntoView({block:"center"})};recorded.append(local);if(m.model==="VIGI C340S"){let bridge=document.createElement("button");bridge.textContent="Prepare intermediate 2.5.1";bridge.onclick=async()=>{document.getElementById("modelMessage").textContent="Preparing intermediate firmware...";try{await api("/api/model/bridge",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Intermediate 2.5.1 prepared; default target unchanged."}catch(e){document.getElementById("modelMessage").textContent=e.message}};recorded.append(bridge);if(m.bridge_package){let note=document.createElement("div");note.textContent="Intermediate ZIP: "+m.bridge_package;recorded.append(note)}}}row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Choose a candidate to download and approve; the current default was not changed."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates){sourceLink(details,url,decodeURIComponent(url.split("/").pop()));let approve=document.createElement("button");approve.textContent="Use as default and download";approve.onclick=()=>approveFirmware(m,url,"");details.append(approve)}actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
+async function loadModels(){try{let result=await api("/api/models",{});catalogModels=result.models;let body=document.getElementById("modelRows");body.replaceChildren();let select=document.getElementById("catalogChoice"),selected=select.value;select.replaceChildren(new Option("Manual entry / not linked",""));for(let m of catalogModels){select.add(new Option(m.model+" V"+m.hardware_version+" ("+m.region+")",m.id));let row=document.createElement("tr");cell(row,m.model+" V"+m.hardware_version+" / "+m.region);let recorded=document.createElement("td");recorded.textContent=m.firmware_version||"Not recorded";sourceLink(recorded,m.firmware_url,"Default ZIP");let cached=document.createElement("div");cached.textContent=m.approved_image?"Approved local image: "+m.approved_image:"Not downloaded / not approved";recorded.append(cached);let download=document.createElement("button");download.textContent="Download and approve default";download.disabled=!m.firmware_url;download.onclick=()=>approveFirmware(m,m.firmware_url,m.firmware_version);recorded.append(download);if(m.model==="VIGI C340S"||m.model==="VIGI C540S"){let local=document.createElement("button");local.textContent="Import local 3.2.1 ZIP";local.onclick=()=>{importModelId=m.id;document.getElementById("importPackage").value=m.model==="VIGI C540S"?"/root/vigi-c540s-3.2.1.zip":"/root/vigi-c340s-3.2.1.zip";document.getElementById("importForm").hidden=false;document.getElementById("importForm").scrollIntoView({block:"center"})};recorded.append(local);if(m.model==="VIGI C340S"||m.model==="VIGI C540S"){let bridge=document.createElement("button");bridge.textContent="Prepare intermediate 2.5.1";bridge.onclick=async()=>{document.getElementById("modelMessage").textContent="Preparing intermediate firmware...";try{await api("/api/model/bridge",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Intermediate 2.5.1 prepared; default target unchanged."}catch(e){document.getElementById("modelMessage").textContent=e.message}};recorded.append(bridge);if(m.bridge_package){let note=document.createElement("div");note.textContent="Intermediate ZIP: "+m.bridge_package;recorded.append(note)}}}row.append(recorded);let actions=document.createElement("td");sourceLink(actions,m.support_url,"Official support page");let note=document.createElement("div");note.textContent=(m.last_checked?m.last_checked+" ":"")+m.check_status;actions.append(note);let check=document.createElement("button");check.textContent="Check for new firmware";check.onclick=async()=>{check.disabled=true;document.getElementById("modelMessage").textContent="Checking official page...";try{await api("/api/model/check",{id:m.id});await loadModels();document.getElementById("modelMessage").textContent="Check complete. Choose a candidate to download and approve; the current default was not changed."}catch(e){document.getElementById("modelMessage").textContent=e.message}finally{check.disabled=false}};let edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{let f=document.getElementById("modelForm");for(let key of ["id","model","hardware_version","region","support_url","firmware_version","firmware_url"])f.elements[key].value=m[key]||"";f.parentElement.open=true};actions.append(check,edit);let candidates=m.available_firmware_urls||[];if(candidates.length){let details=document.createElement("details"),summary=document.createElement("summary");summary.textContent="Firmware candidates ("+candidates.length+")";details.append(summary);for(let url of candidates){sourceLink(details,url,decodeURIComponent(url.split("/").pop()));let approve=document.createElement("button");approve.textContent="Use as default and download";approve.onclick=()=>approveFirmware(m,url,"");details.append(approve)}actions.append(details)}row.append(actions);body.append(row)}select.value=selected;document.getElementById("modelMessage").textContent="Catalog: "+result.path}catch(e){document.getElementById("modelMessage").textContent=e.message}}
 document.getElementById("modelForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/model/save",Object.fromEntries(new FormData(e.target)));await loadModels()}catch(error){document.getElementById("modelMessage").textContent=error.message}};
 loadModels();refresh();setInterval(refresh,1000);
 </script></body></html>"""
@@ -242,8 +242,11 @@ class Application:
                         inspect_package(bridge, STAGES["bridge"])
                         firmware_args = ["--c340s-bridge-package", str(bridge)]
                     elif row[0] == "VIGI C540S":
-                        from .vigi_c540s_upgrade import inspect_latest_image
+                        from .vigi_c540s_upgrade import inspect_latest_image, inspect_package, STAGES
                         inspect_latest_image(image)
+                        bridge = Path(selected.get("bridge_package") or getattr(self, "c540s_bridge_package", Path.home() / "vigi-c540s-2.5.1.zip"))
+                        inspect_package(bridge, STAGES["bridge"])
+                        firmware_args = ["--c540s-bridge-package", str(bridge)]
                     else:
                         from .vigi_firmware_upgrade import inspect_firmware
                         inspect_firmware(image)
@@ -372,6 +375,8 @@ def worker(args):
         sys.argv.extend(["--firmware-file", args.firmware_file])
     if args.c340s_bridge_package:
         sys.argv.extend(["--c340s-bridge-package", args.c340s_bridge_package])
+    if getattr(args, "c540s_bridge_package", None):
+        sys.argv.extend(["--c540s-bridge-package", args.c540s_bridge_package])
     workflow.main()
 
 
@@ -381,6 +386,7 @@ def main():
     parser.add_argument("--config", required=True)
     parser.add_argument("--initialize-only", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--c340s-bridge-package", help="Intermediate C340S ZIP; defaults to ~/vigi-c340s-2.5.1.zip")
+    parser.add_argument("--c540s-bridge-package", help="Intermediate C540S ZIP; defaults to ~/vigi-c540s-2.5.1.zip")
     parser.add_argument("--firmware-dir", help="Firmware cache folder (default: firmware beside profile)")
     parser.add_argument("--firmware-file", help=argparse.SUPPRESS)
     parser.add_argument("--models", help="Editable model catalog TOML (default: models.toml beside profile)")
@@ -411,6 +417,7 @@ def main():
     app = Application(database,config)
     app.catalog_path = catalog_path
     app.bridge_package = str(Path(args.c340s_bridge_package or Path.home() / "vigi-c340s-2.5.1.zip").resolve())
+    app.c540s_bridge_package = str(Path(args.c540s_bridge_package or Path.home() / "vigi-c540s-2.5.1.zip").resolve())
     app.firmware_dir = Path(args.firmware_dir).resolve() if args.firmware_dir else Path(config).with_name("firmware")
 
     class Handler(BaseHTTPRequestHandler):
@@ -498,14 +505,20 @@ def main():
                             raise ValueError("Wait for active operations before preparing firmware.")
                         rows = load_catalog(catalog_path)
                         original = next((r for r in rows if r["id"] == data["id"]), None)
-                    if original is None or original["model"] != "VIGI C340S" or original["hardware_version"] not in {"1", "1.0"} or original["region"] != "UN":
-                        raise ValueError("The inspected intermediate package is for C340S V1 UN only.")
+                    if original is None or original["model"] not in {"VIGI C340S", "VIGI C540S"} or original["hardware_version"] not in {"1", "1.0"} or original["region"] != "UN":
+                        raise ValueError("The inspected intermediate packages are for C340S/C540S V1 UN only.")
                     bridge_url = "https://static.tp-link.com/upload/firmware/2025/202504/20250418/VIGI%20C340S(UN)_V1_2.5.1%20Build%20250327%20Rel.67051n.zip"
+                    if original["model"] == "VIGI C540S":
+                        from .vigi_c540s_upgrade import BRIDGE_URL
+                        bridge_url = BRIDGE_URL
                     temporary_row = dict(original)
                     temporary_row["available_firmware_urls"] = list(original["available_firmware_urls"]) + [bridge_url]
                     try:
                         cached = approve_download(temporary_row, bridge_url, "2.5.1 Build 250327", app.firmware_dir)
-                        from .vigi_c340s_upgrade import inspect_package, STAGES
+                        if original["model"] == "VIGI C540S":
+                            from .vigi_c540s_upgrade import inspect_package, STAGES
+                        else:
+                            from .vigi_c340s_upgrade import inspect_package, STAGES
                         inspect_package(cached["approved_zip"], STAGES["bridge"])
                     except Exception as exc:
                         raise ValueError(f"Intermediate firmware preparation failed: {exc}") from None
