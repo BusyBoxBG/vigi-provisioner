@@ -124,6 +124,7 @@ def initialize_inventory(path):
         }.items():
             if name not in existing:
                 db.execute(f"ALTER TABLE camera_inventory ADD COLUMN {name} {declaration}")
+        db.execute("UPDATE camera_inventory SET label_serial=lower(label_serial) WHERE label_serial IS NOT NULL AND label_serial != lower(label_serial)")
 
 
 def save_camera(path, data):
@@ -138,7 +139,7 @@ def save_camera(path, data):
         raise ValueError("Invalid target address or prefix.")
     if gateway not in interface.network.hosts() or gateway == interface.ip:
         raise ValueError("Gateway must be a different usable host in the target subnet.")
-    serial, model = data["label_serial"].strip(), data["model"].strip()
+    serial, model = data["label_serial"].strip().lower(), data["model"].strip()
     if not serial or not model:
         raise ValueError("Label serial and model are required.")
     with closing(sqlite3.connect(path)) as db, db:
@@ -584,7 +585,7 @@ def main():
                             data["model"], data["hardware_version"] = selected["model"], selected["hardware_version"]
                         save_camera(database,data)
                 elif self.path == "/api/serial":
-                    serial = str(data["label_serial"]).strip()
+                    serial = str(data["label_serial"]).strip().lower()
                     if not serial or len(serial) > 128:
                         raise ValueError("Enter a label serial number of up to 128 characters.")
                     with app.lock, closing(sqlite3.connect(database)) as db, db:
